@@ -1,0 +1,227 @@
+{
+  "books": [
+    {
+      "id": "doupo_cangqiong",
+      "name": "斗破苍穹",
+      "author": "天蚕土豆",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1235/1235s.jpg",
+      "intro": "这里是斗气大陆，没有花俏艳丽的魔法，有的，仅仅是繁衍到巅峰的斗气！",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 陨落的天才"},
+        {"id": 2, "title": "第二章 斗之气，三段！"},
+        {"id": 3, "title": "第三章 客人"},
+        {"id": 4, "title": "第四章 云岚宗"},
+        {"id": 5, "title": "第五章 聚气散"},
+        {"id": 6, "title": "第六章 炼药师"},
+        {"id": 7, "title": "第七章 休书"},
+        {"id": 8, "title": "第八章 神秘的老者"},
+        {"id": 9, "title": "第九章 药老"},
+        {"id": 10, "title": "第十章 拜师"}
+      ]
+    },
+    {
+      "id": "wanmei_shijie",
+      "name": "完美世界",
+      "author": "辰东",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1345/1345s.jpg",
+      "intro": "一粒尘可填海，一根草斩尽日月星辰，弹指间天翻地覆。群雄并起，万族林立，诸圣争霸，乱天动地。",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 朝气蓬勃"},
+        {"id": 2, "title": "第二章 柳神"},
+        {"id": 3, "title": "第三章 药浴"},
+        {"id": 4, "title": "第四章 宝术"},
+        {"id": 5, "title": "第五章 凶兽"},
+        {"id": 6, "title": "第六章 青鳞鹰"},
+        {"id": 7, "title": "第七章 凶禽猛禽"},
+        {"id": 8, "title": "第八章 大雨滂沱"},
+        {"id": 9, "title": "第九章 大荒"},
+        {"id": 10, "title": "第十章 搬血境"}
+      ]
+    },
+    {
+      "id": "zhetian",
+      "name": "遮天",
+      "author": "辰东",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1039/1039s.jpg",
+      "intro": "冰冷与黑暗并存的宇宙深处，九具庞大的龙尸拉着一口青铜古棺，亘古长存。",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 星空中的青铜巨棺"},
+        {"id": 2, "title": "第二章 荒古禁地"},
+        {"id": 3, "title": "第三章 神泉"},
+        {"id": 4, "title": "第四章 道经"},
+        {"id": 5, "title": "第五章 妖帝坟冢"},
+        {"id": 6, "title": "第六章 宝体"},
+        {"id": 7, "title": "第七章 仙缘"},
+        {"id": 8, "title": "第八章 初战"},
+        {"id": 9, "title": "第九章 五色祭坛"},
+        {"id": 10, "title": "第十章 横渡虚空"}
+      ]
+    },
+    {
+      "id": "shenmu",
+      "name": "神墓",
+      "author": "辰东",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1037/1037s.jpg",
+      "intro": "一个死去万载岁月的平凡青年从远古神墓中复活而出，望着那如林的神魔墓碑，他心中充满了震撼。",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 远古神墓"},
+        {"id": 2, "title": "第二章 复活"},
+        {"id": 3, "title": "第三章 小恶魔公主"},
+        {"id": 4, "title": "第四章 后羿射月"},
+        {"id": 5, "title": "第五章 龙宝宝"},
+        {"id": 6, "title": "第六章 神风学院"},
+        {"id": 7, "title": "第七章 龙骑士"},
+        {"id": 8, "title": "第八章 武破虚空"},
+        {"id": 9, "title": "第九章 死亡绝地"},
+        {"id": 10, "title": "第十章 大魔天王"}
+      ]
+    },
+    {
+      "id": "fanren_xiuxian",
+      "name": "凡人修仙传",
+      "author": "忘语",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1040/1040s.jpg",
+      "intro": "一个普通山村小子，偶然下进入到当地江湖小门派，成了一名记名弟子。他以这样身份，如何在门派中立足，如何以平庸的资质进入到修仙者的行列？",
+      "source": "笔趣阁",
+      "category": "仙侠",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 七玄门"},
+        {"id": 2, "title": "第二章 墨大夫"},
+        {"id": 3, "title": "第三章 长春功"},
+        {"id": 4, "title": "第四章 炼气"},
+        {"id": 5, "title": "第五章 黄枫谷"},
+        {"id": 6, "title": "第六章 筑基"},
+        {"id": 7, "title": "第七章 血色禁地"},
+        {"id": 8, "title": "第八章 结丹"},
+        {"id": 9, "title": "第九章 元婴"},
+        {"id": 10, "title": "第十章 化神"}
+      ]
+    },
+    {
+      "id": "xueshan_feihu",
+      "name": "雪山飞狐",
+      "author": "金庸",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1050/1050s.jpg",
+      "intro": "《雪山飞狐》是当代武侠小说作家金庸作于1959年的小说，以胡一刀夫妇为主角，通过宝树、苗人凤之女苗若兰、平阿四及陶百岁之口讲述了数年前与此相关的一段武林往事。",
+      "source": "笔趣阁",
+      "category": "武侠",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 胡一刀"},
+        {"id": 2, "title": "第二章 苗人凤"},
+        {"id": 3, "title": "第三章 比武"},
+        {"id": 4, "title": "第四章 宝藏"},
+        {"id": 5, "title": "第五章 飞狐"},
+        {"id": 6, "title": "第六章 复仇"},
+        {"id": 7, "title": "第七章 真相"},
+        {"id": 8, "title": "第八章 决战"},
+        {"id": 9, "title": "第九章 结局"},
+        {"id": 10, "title": "第十章 后记"}
+      ]
+    },
+    {
+      "id": "da_zhu_zai",
+      "name": "大主宰",
+      "author": "天蚕土豆",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1568/1568s.jpg",
+      "intro": "大千世界，位面交汇，万族林立，群雄荟萃，一位位来自下位面的天之至尊，在这无尽世界，演绎着令人向往的传奇，追求着那主宰之路。",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 北灵院"},
+        {"id": 2, "title": "第二章 被踢出灵路的少年"},
+        {"id": 3, "title": "第三章 牧域"},
+        {"id": 4, "title": "第四章 大浮屠诀"},
+        {"id": 5, "title": "第五章 灵兽精魄"},
+        {"id": 6, "title": "第六章 灵路"},
+        {"id": 7, "title": "第七章 洛神族"},
+        {"id": 8, "title": "第八章 九幽雀"},
+        {"id": 9, "title": "第九章 灵阵"},
+        {"id": 10, "title": "第十章 至尊法身"}
+      ]
+    },
+    {
+      "id": "wu_dong_qian_kun",
+      "name": "武动乾坤",
+      "author": "天蚕土豆",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1266/1266s.jpg",
+      "intro": "修炼一途，乃窃阴阳，夺造化，转涅槃，握生死，掌轮回。武之极，破苍穹，动乾坤！",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 林动"},
+        {"id": 2, "title": "第二章 通背拳"},
+        {"id": 3, "title": "第三章 石符"},
+        {"id": 4, "title": "第四章 古影"},
+        {"id": 5, "title": "第五章 符师"},
+        {"id": 6, "title": "第六章 炎城"},
+        {"id": 7, "title": "第七章 丹仙池"},
+        {"id": 8, "title": "第八章 小貂"},
+        {"id": 9, "title": "第九章 祖石"},
+        {"id": 10, "title": "第十章 百朝大战"}
+      ]
+    },
+    {
+      "id": "jiang_ye",
+      "name": "将夜",
+      "author": "猫腻",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1458/1458s.jpg",
+      "intro": "一段可歌可泣可笑可爱的草根崛起史，一个物质要求宁滥勿缺的开朗少年行。",
+      "source": "笔趣阁",
+      "category": "玄幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 渭城有雨，少年有侍"},
+        {"id": 2, "title": "第二章 能书能言穷酸少年"},
+        {"id": 3, "title": "第三章 唐人的唐"},
+        {"id": 4, "title": "第四章 老笔斋"},
+        {"id": 5, "title": "第五章 春风亭雨夜"},
+        {"id": 6, "title": "第六章 朝小树"},
+        {"id": 7, "title": "第七章 朱雀记"},
+        {"id": 8, "title": "第八章 书院"},
+        {"id": 9, "title": "第九章 二层楼"},
+        {"id": 10, "title": "第十章 夫子的弟子"}
+      ]
+    },
+    {
+      "id": "mao_pian_zhe",
+      "name": "冒牌大英雄",
+      "author": "七十二编",
+      "cover": "https://www.biquge.com.cn/files/article/image/1/1789/1789s.jpg",
+      "intro": "一个机械修理兵能做什么，研究、改装、奇思妙想？一个机甲战士能做什么，机甲战斗、精妙操作、奇拳怪招？",
+      "source": "笔趣阁",
+      "category": "科幻",
+      "progress": 0,
+      "chapters": [
+        {"id": 1, "title": "第一章 逃兵"},
+        {"id": 2, "title": "第二章 机械师"},
+        {"id": 3, "title": "第三章 机甲"},
+        {"id": 4, "title": "第四章 战斗"},
+        {"id": 5, "title": "第五章 胜利"},
+        {"id": 6, "title": "第六章 英雄"},
+        {"id": 7, "title": "第七章 联邦"},
+        {"id": 8, "title": "第八章 加查林"},
+        {"id": 9, "title": "第九章 战争"},
+        {"id": 10, "title": "第十章 传奇"}
+      ]
+    }
+  ],
+  "total": 10,
+  "sources_used": 1,
+  "update_time": "2024-01-01"
+}

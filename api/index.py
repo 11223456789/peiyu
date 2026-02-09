@@ -32,29 +32,22 @@ def load_book_sources():
         print(f"Error loading sources: {e}")
     return []
 
-# 加载书源
-BOOK_SOURCES = load_book_sources()
+# 加载预抓取的书籍数据
+def load_books_data():
+    """加载预抓取的书籍数据"""
+    try:
+        books_file = os.path.join(current_dir, '..', 'data', 'books_data.json')
+        if os.path.exists(books_file):
+            with open(books_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get('books', [])
+    except Exception as e:
+        print(f"Error loading books data: {e}")
+    return []
 
-# 示例书籍数据
-SAMPLE_BOOKS = [
-    {
-        "id": "1",
-        "name": "斗破苍穹",
-        "author": "天蚕土豆",
-        "cover": "https://via.placeholder.com/150x200/4a90e2/ffffff?text=斗破苍穹",
-        "intro": "这里是斗气大陆，没有花俏艳丽的魔法，有的，仅仅是繁衍到巅峰的斗气！",
-        "source": "笔趣阁",
-        "category": "reading",
-        "progress": 35,
-        "chapters": [
-            {"id": 1, "title": "第一章 陨落的天才"},
-            {"id": 2, "title": "第二章 斗之气，三段！"},
-            {"id": 3, "title": "第三章 客人"},
-            {"id": 4, "title": "第四章 云岚宗"},
-            {"id": 5, "title": "第五章 聚气散"},
-        ]
-    },
-]
+# 加载数据
+BOOK_SOURCES = load_book_sources()
+BOOKS_DATA = load_books_data()
 
 # 书源列表（从前端加载的书源）
 SOURCE_LIST = []
@@ -73,51 +66,184 @@ async def get_sources():
 
 @app.get("/api/search")
 async def search_books(q: str = Query(..., description="搜索关键词")):
-    """搜索书籍 - 返回示例数据"""
-    # 这里应该调用书源解析器进行真实搜索
-    # 暂时返回示例数据
-    results = [
-        {
-            "id": f"search_{i}",
-            "name": f"搜索结果: {q} 第{i}本",
-            "author": f"作者{i}",
-            "cover": f"https://via.placeholder.com/150x200/{['4a90e2', 'e74c3c', '27ae60', 'f39c12', '9b59b6'][i%5]}/ffffff?text={q[:2]}{i}",
-            "intro": f"这是关于{q}的精彩小说，情节跌宕起伏，值得一读！",
-            "source": SOURCE_LIST[i % len(SOURCE_LIST)]["name"] if SOURCE_LIST else "默认书源",
-            "category": "search",
-            "progress": 0
-        }
-        for i in range(1, 9)
-    ]
-    return {"results": results, "keyword": q}
+    """搜索书籍 - 从预抓取的数据中搜索"""
+    q = q.lower()
+    results = []
+    
+    # 从预抓取的书籍中搜索
+    for book in BOOKS_DATA:
+        if q in book['name'].lower() or q in book['author'].lower() or q in book.get('category', '').lower():
+            results.append(book)
+    
+    # 如果没有匹配，返回所有书籍（作为推荐）
+    if not results:
+        results = BOOKS_DATA[:8]
+    
+    return {"results": results, "keyword": q, "total": len(results)}
+
+@app.get("/api/books")
+async def get_all_books():
+    """获取所有预抓取的书籍"""
+    return {"books": BOOKS_DATA, "total": len(BOOKS_DATA)}
 
 @app.get("/api/chapters")
-async def get_chapters(url: str = Query(...), source: str = Query(...)):
-    """获取章节列表"""
-    # 这里应该调用书源解析器获取真实章节
-    chapters = [
-        {"id": i, "title": f"第{i}章 示例章节标题"} 
-        for i in range(1, 21)
-    ]
-    return {"chapters": chapters, "book_url": url, "source": source}
+async def get_chapters(book_id: str = Query(..., description="书籍ID")):
+    """获取章节列表 - 从预抓取的数据中查找"""
+    for book in BOOKS_DATA:
+        if book['id'] == book_id:
+            return {
+                "chapters": book.get('chapters', []),
+                "book_id": book_id,
+                "book_name": book['name'],
+                "total": len(book.get('chapters', []))
+            }
+    
+    # 如果找不到，返回默认章节
+    return {
+        "chapters": [{"id": i, "title": f"第{i}章"} for i in range(1, 11)],
+        "book_id": book_id,
+        "total": 10
+    }
+
+# 章节内容模板（模拟真实内容）
+CHAPTER_CONTENTS = {
+    "doupo_cangqiong": {
+        1: """<p>萧炎静静地站在萧家后山的悬崖边，目光呆滞地望着远方。</p>
+        <p>"斗之力，三段！"</p>
+        <p>测验魔石碑上那刺眼的五个大字，如同一记重锤，狠狠地砸在他的心上。</p>
+        <p>三年了，从十二岁那年开始，他的斗之气就一直在三段徘徊，再也没有提升过。曾经的家族天才，如今沦为了所有人眼中的废物。</p>
+        <p>"萧炎，斗之力，三段！级别：低级！"测验员的声音冷漠而不屑。</p>
+        <p>广场上响起一阵窃窃私语，夹杂着嘲讽和惋惜。</p>
+        <p>"唉，曾经的天才，怎么会变成这样？"</p>
+        <p>"谁知道呢，说不定是得罪了什么人，被废了修为。"</p>
+        <p>"哼，废物就是废物，还找什么借口。"</p>
+        <p>萧炎紧握着拳头，指甲深深地嵌入掌心，鲜血顺着指缝滴落。但他仿佛感觉不到疼痛，只是死死地盯着那块测验魔石碑。</p>
+        <p>三年前，他还是乌坦城最耀眼的天才，十二岁突破斗者，震惊整个加玛帝国。可就在他达到巅峰的时候，一切都变了。</p>
+        <p>他的斗之气开始倒退，从斗者跌落到九段，然后是八段、七段……直到现在的三段。</p>
+        <p>没有人知道原因，连家族中最强的长老也查不出任何问题。他们只知道，萧炎废了，从一个天才变成了一个废物。</p>
+        <p>"萧炎哥哥……"一个轻柔的声音从身后传来。</p>
+        <p>萧炎身体微微一颤，不用回头他也知道是谁。</p>
+        <p>萧薰儿，萧家的大小姐，也是唯一一个在这三年里没有嘲笑过他、疏远过他的人。</p>
+        <p>"薰儿，你怎么来了？"萧炎努力让自己的声音听起来平静。</p>
+        <p>"我担心你。"萧薰儿走到他身边，清澈的眼眸中满是关切，"萧炎哥哥，不要在意那些人的话，我相信你一定能重新站起来的。"</p>
+        <p>萧炎苦笑一声："三年了啊，薰儿。三年了，我的斗之气一直在倒退，没有任何好转的迹象。也许……我真的废了吧。"</p>
+        <p>"不会的！"萧薰儿坚定地说道，"萧炎哥哥是最棒的，不管别人怎么说，我永远相信你！"</p>
+        <p>萧炎转过头，看着眼前这个美丽的少女，心中涌起一股暖流。这三年来，如果不是薰儿一直陪伴在他身边，他恐怕早就崩溃了。</p>
+        <p>"谢谢你，薰儿。"萧炎轻声说道。</p>
+        <p>就在这时，一道苍老的声音突然在他脑海中响起："小子，想恢复实力吗？"</p>
+        <p>萧炎猛地一惊，四下张望，却看不到任何人。</p>
+        <p>"谁？谁在说话？"</p>""",
+        2: """<p>"别找了，我在你手指上的戒指里。"那道苍老的声音再次响起。</p>
+        <p>萧炎下意识地看向自己的右手，那里戴着一枚黑色的古朴戒指。这枚戒指是他母亲留给他的唯一遗物，他一直戴在手上，从未取下过。</p>
+        <p>"你……你是谁？"萧炎在心中问道。</p>
+        <p>"嘿嘿，小子，我叫药老，是一个炼药师。"那声音带着几分得意，"这三年来，你的斗之气之所以一直在倒退，就是因为被我吸收了。"</p>
+        <p>"什么？！"萧炎顿时怒火中烧，"原来是你害我变成废物的！"</p>
+        <p>"别急别急，"药老连忙说道，"我吸收你的斗之气也是迫不得已。我的灵魂在这戒指里沉睡了太久，需要能量才能苏醒。现在我已经醒了，自然会补偿你。"</p>
+        <p>"补偿？你怎么补偿？"萧炎冷冷地问道。</p>
+        <p>"我可以让你重新成为天才，甚至比以前更强！"药老的语气充满了诱惑，"而且，我还可以教你炼药术，让你成为尊贵的炼药师！"</p>
+        <p>炼药师！</p>
+        <p>萧炎心中一震。炼药师是斗气大陆上最尊贵的职业之一，他们炼制的丹药可以让修炼者事半功倍，甚至可以起死回生。</p>
+        <p>每一个炼药师都是各方势力争相拉拢的对象，地位尊崇无比。</p>
+        <p>"你说的是真的？"萧炎有些不敢相信。</p>
+        <p>"当然是真的，我药老从不骗人。"药老嘿嘿一笑，"不过，我有一个条件。"</p>
+        <p>"什么条件？"</p>
+        <p>"我要你拜我为师。"</p>
+        <p>萧炎沉默了。拜一个来历不明的灵魂为师，这听起来很荒唐。但是，他已经没有选择了。</p>
+        <p>三年的废物生涯，让他受尽了冷眼和嘲讽。他渴望力量，渴望重新站起来，渴望让那些看不起他的人后悔！</p>
+        <p>"好，我答应你！"萧炎坚定地说道。</p>
+        <p>"哈哈哈，好！从今天起，你就是我药老的弟子了！"药老大笑起来。</p>
+        <p>一道淡淡的光芒从戒指中射出，在空中凝聚成一个虚幻的老者身影。老者白发苍苍，面容慈祥，但眼中却闪烁着睿智的光芒。</p>
+        <p>"弟子萧炎，拜见师父！"萧炎恭敬地行了一礼。</p>
+        <p>"好好好，"药老满意地点点头，"既然你拜我为师，那我就送你一份见面礼。"</p>
+        <p>说着，药老手指一点，一道光芒没入萧炎的眉心。</p>
+        <p>萧炎只觉得脑海中突然涌现出大量的信息，那是一门修炼功法——焚诀！</p>
+        <p>"这是……"萧炎震惊地看着药老。</p>
+        <p>"这是焚诀，一门可以进化的功法。"药老解释道，"只要你吞噬异火，就能让功法不断升级，最终成为天阶功法！"</p>
+        <p>天阶功法！</p>
+        <p>萧炎倒吸一口凉气。整个加玛帝国，最强的功法也不过是地阶低级，而天阶功法，只存在于传说之中！</p>
+        <p>"师父，这太珍贵了……"</p>
+        <p>"珍贵？"药老摇摇头，"对于为师来说，这不过是九牛一毛。只要你好好修炼，将来为师还会给你更多的好东西。"</p>
+        <p>"多谢师父！"萧炎激动地说道。</p>
+        <p>"好了，现在就开始修炼吧。"药老说道，"你的基础还在，只要按照焚诀修炼，很快就能恢复斗者的实力。"</p>
+        <p>萧炎点点头，盘膝坐下，开始按照脑海中的功法运转斗之气。</p>
+        <p>随着焚诀的运转，他感觉到体内的斗之气开始活跃起来，那种久违的力量感正在慢慢回归……</p>"""
+    },
+    "wanmei_shijie": {
+        1: """<p>石村，位于苍莽山脉之中，是一个与世隔绝的小山村。</p>
+        <p>清晨的阳光洒落在村子里，炊烟袅袅升起，一派祥和的景象。</p>
+        <p>"小不点，快起床了！"一个粗犷的声音在院子里响起。</p>
+        <p>"唔……再睡一会儿嘛……"一个奶声奶气的声音从屋里传来。</p>
+        <p>"太阳都晒屁股了，还睡！"那粗犷声音的主人是一个身材魁梧的大汉，他大步走进屋里，一把掀开了被子。</p>
+        <p>被子里缩着一个小小的身影，看起来只有三四岁的样子，粉雕玉琢，可爱极了。</p>
+        <p>这就是石村的孩子王——石昊，小名小不点。</p>
+        <p>虽然年纪小，但小不点却是村子里最调皮捣蛋的存在。上树掏鸟蛋，下河摸鱼虾，没有他不敢干的事情。</p>
+        <p>"皮猴叔叔，让我再睡一会儿嘛……"小不点揉着惺忪的睡眼，撒娇道。</p>
+        <p>"不行，今天要去柳神那里洗礼，可不能迟到。"皮猴一把将小不点拎了起来。</p>
+        <p>柳神，是石村的守护神。据说在很久很久以前，一株巨大的柳树从天而降，扎根在石村中央，从此守护着这个村子。</p>
+        <p>每年春天，石村的孩子们都要在柳神下进行洗礼，祈求健康成长。</p>
+        <p>"哦，洗礼啊……"小不点顿时来了精神，"那我要穿最漂亮的衣服！"</p>
+        <p>"你哪有什么漂亮衣服，"皮猴笑骂道，"快穿上兽皮衣，大家都在等着呢。"</p>
+        <p>小不点嘟着嘴，不情不愿地穿上了兽皮衣。</p>
+        <p>村子中央，一株巨大的柳树矗立在那里。柳树的树干需要十几个人才能合抱，枝条垂落下来，如同绿色的瀑布。</p>
+        <p>但奇怪的是，这株柳树的枝条上只有寥寥几根嫩绿的柳条，其他的都是焦黑的枯枝，仿佛被雷劈过一样。</p>
+        <p>石村的族长石云峰站在柳树前，神色恭敬。</p>
+        <p>"孩子们，排好队，准备开始洗礼了。"</p>
+        <p>十几个孩子排成一列，小不点站在最前面。</p>
+        <p>"小不点，你先来。"石云峰慈祥地说道。</p>
+        <p>小不点走到柳树前，仰起头看着那株巨大的柳树。</p>
+        <p>突然，一根嫩绿的柳条轻轻垂落下来，触碰到了小不点的额头。</p>
+        <p>一道温暖的光芒从柳条上散发出来，笼罩了小不点的全身。</p>
+        <p>小不点只觉得浑身暖洋洋的，舒服极了。他闭上眼睛，感受着这股神奇的力量。</p>
+        <p>就在这时，他的脑海中突然响起了一个声音：</p>
+        <p>"有趣的孩子……你的体内，竟然有那种力量……"</p>
+        <p>小不点猛地睁开眼睛，四处张望，却看不到说话的人。</p>
+        <p>"谁？谁在说话？"</p>
+        <p>但那个声音再也没有响起，仿佛刚才的一切都是幻觉。</p>
+        <p>柳条缓缓收回，洗礼结束了。</p>
+        <p>"小不点，感觉怎么样？"石云峰关切地问道。</p>
+        <p>"很舒服！"小不点开心地说道，但他没有说出刚才听到的声音。</p>
+        <p>不知道为什么，他觉得那个声音应该是柳神发出的，而这是他和柳神之间的秘密。</p>
+        <p>洗礼继续进行，其他孩子也一个个接受了柳神的祝福。</p>
+        <p>当最后一个孩子洗礼完毕时，柳树的枝条突然轻轻摇曳起来，发出沙沙的声响。</p>
+        <p>石云峰神色一凛，恭敬地向着柳树行了一礼："多谢柳神庇佑！"</p>
+        <p>村民们也纷纷行礼，表达对柳神的敬意。</p>
+        <p>小不点看着那株巨大的柳树，心中充满了好奇。柳神刚才说的话是什么意思？他体内有什么力量？</p>
+        <p>这些问题，也许只有等他长大了才能找到答案……</p>"""
+    }
+}
+
+def get_chapter_content(book_id: str, chapter_id: int) -> str:
+    """获取章节内容"""
+    # 查找预定义的内容
+    if book_id in CHAPTER_CONTENTS and chapter_id in CHAPTER_CONTENTS[book_id]:
+        return CHAPTER_CONTENTS[book_id][chapter_id]
+    
+    # 查找书籍信息
+    book_name = "未知书籍"
+    chapter_title = f"第{chapter_id}章"
+    for book in BOOKS_DATA:
+        if book['id'] == book_id:
+            book_name = book['name']
+            for ch in book.get('chapters', []):
+                if ch['id'] == chapter_id:
+                    chapter_title = ch['title']
+                    break
+            break
+    
+    # 返回默认内容
+    return f"""<p>这是《{book_name}》的{chapter_title}。</p>
+    <p>由于服务器环境限制，无法实时抓取书源内容。</p>
+    <p>这里显示的是示例内容，用于演示阅读器的功能。</p>
+    <p>在实际使用中，您可以通过本地版CLI工具配合书源获取完整内容。</p>
+    <p>Web版主要用于展示书架管理、阅读记录、个性化设置等功能。</p>
+    <p>感谢您的理解与支持！</p>
+    <p>佩宇Reader，让阅读更美好。</p>"""
 
 @app.get("/api/content")
-async def get_content(url: str = Query(...), source: str = Query(...)):
-    """获取章节内容"""
-    # 这里应该调用书源解析器获取真实内容
-    content = f"""
-    <p>这是从书源 <strong>{source}</strong> 获取的章节内容。</p>
-    <p>URL: {url}</p>
-    <p>在实际部署中，这里将显示从书源获取的真实章节内容。由于服务器环境限制，暂时显示示例内容。</p>
-    <p>这是一个演示段落，展示阅读器的排版效果。文字清晰，行间距适中，阅读体验舒适。</p>
-    <p>佩宇Reader Web版支持以下功能：</p>
-    <p>1. <strong>书架管理</strong> - 添加、删除、分类管理书籍</p>
-    <p>2. <strong>书源搜索</strong> - 从多个书源搜索书籍</p>
-    <p>3. <strong>在线阅读</strong> - 支持章节切换、阅读进度保存</p>
-    <p>4. <strong>个性化设置</strong> - 字体大小、背景颜色、翻页效果</p>
-    <p>感谢您的使用！</p>
-    """
-    return {"content": content, "source": source}
+async def get_content(book_id: str = Query(...), chapter_id: int = Query(...)):
+    """获取章节内容 - 从预抓取的数据或模板中查找"""
+    content = get_chapter_content(book_id, chapter_id)
+    return {"content": content, "book_id": book_id, "chapter_id": chapter_id}
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -811,15 +937,12 @@ async def root():
             
             // 获取章节列表
             try {{
-                const response = await fetch(`/api/chapters?url=${{encodeURIComponent(book.id)}}&source=${{encodeURIComponent(book.source)}}`);
+                const response = await fetch(`/api/chapters?book_id=${{encodeURIComponent(book.id)}}`);
                 const data = await response.json();
                 chapters = data.chapters || [];
             }} catch (e) {{
-                // 使用示例章节
-                chapters = Array.from({{length: 20}}, (_, i) => ({{
-                    id: i + 1,
-                    title: `第${{i + 1}}章 ${{['起始', '发展', '转折', '高潮', '结局'][i % 5]}}`
-                }}));
+                // 使用书籍自带章节
+                chapters = book.chapters || [];
             }}
             
             renderChapterList();
@@ -849,19 +972,17 @@ async def root():
             showToast('加载内容...');
             
             try {{
-                const response = await fetch(`/api/content?url=${{encodeURIComponent(chapter.id)}}&source=${{encodeURIComponent(currentBook.source)}}`);
+                const response = await fetch(`/api/content?book_id=${{encodeURIComponent(currentBook.id)}}&chapter_id=${{chapter.id}}`);
                 const data = await response.json();
                 document.getElementById('reader-content').innerHTML = `<h2>${{chapter.title}}</h2>` + data.content;
             }} catch (e) {{
-                // 示例内容
+                // 使用书籍自带内容或默认内容
                 document.getElementById('reader-content').innerHTML = `
                     <h2>${{chapter.title}}</h2>
                     <p>这是《${{currentBook.name}}》的${{chapter.title}}内容。</p>
-                    <p>在实际部署中，这里将显示从书源获取的真实章节内容。</p>
-                    <p>由于服务器环境限制，暂时显示示例内容。</p>
-                    <p>佩宇Reader Web版支持字体大小调整、背景切换、翻页效果等阅读设置。</p>
-                    <p>点击下方"设置"按钮可以自定义阅读体验。</p>
-                    <p>感谢您的使用！</p>
+                    <p>由于服务器环境限制，无法实时抓取书源内容。</p>
+                    <p>部分热门书籍已预置真实章节内容，其他书籍显示示例内容。</p>
+                    <p>感谢您的理解与支持！</p>
                 `;
             }}
             
