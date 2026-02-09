@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PeiYuReader</string>
+    <string name="title_activity_main">PeiYuReader</string>
+    <string name="package_name">com.peiyu.reader</string>
+    <string name="custom_url_scheme">com.peiyu.reader</string>
+</resources>
