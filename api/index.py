@@ -1,24 +1,26 @@
 """
 佩宇Reader - Vercel Serverless部署入口
-完整的Web版阅读器
+完整的Web版阅读器 - 支持书源解析
 """
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, JSONResponse
 import json
 import os
+import sys
+
+# 添加父目录到路径
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 app = FastAPI(
     title="佩宇Reader",
-    description="AI智能阅读器 - Web版",
-    version="2.0.0"
+    description="AI智能阅读器 - Web版（支持书源解析）",
+    version="2.1.0"
 )
 
 # 获取当前目录
 current_dir = os.path.dirname(os.path.abspath(__file__))
-static_dir = os.path.join(current_dir, '..', 'web', 'static')
 
-# 加载书源
+# 加载书源配置
 def load_book_sources():
     """加载书源配置"""
     try:
@@ -30,7 +32,7 @@ def load_book_sources():
         print(f"Error loading sources: {e}")
     return []
 
-# 示例书籍数据
+# 示例书籍数据（用于演示）
 SAMPLE_BOOKS = [
     {
         "id": "1",
@@ -83,61 +85,10 @@ SAMPLE_BOOKS = [
             {"id": 5, "title": "第五章 妖帝坟冢"},
         ]
     },
-    {
-        "id": "4",
-        "name": "凡人修仙传",
-        "author": "忘语",
-        "cover": "https://via.placeholder.com/150x200/f39c12/ffffff?text=凡人修仙传",
-        "intro": "一个普通山村小子，偶然下进入到当地江湖小门派，成了一名记名弟子。",
-        "source": "笔趣阁",
-        "category": "favorite",
-        "progress": 60,
-        "chapters": [
-            {"id": 1, "title": "第一章 七玄门"},
-            {"id": 2, "title": "第二章 墨大夫"},
-            {"id": 3, "title": "第三章 长春功"},
-            {"id": 4, "title": "第四章 炼气"},
-            {"id": 5, "title": "第五章 出山"},
-        ]
-    },
-    {
-        "id": "5",
-        "name": "仙逆",
-        "author": "耳根",
-        "cover": "https://via.placeholder.com/150x200/9b59b6/ffffff?text=仙逆",
-        "intro": "顺为凡，逆则仙，只在心中一念间。",
-        "source": "起点",
-        "category": "reading",
-        "progress": 25,
-        "chapters": [
-            {"id": 1, "title": "第一章 铁柱"},
-            {"id": 2, "title": "第二章 恒岳派"},
-            {"id": 3, "title": "第三章 入门"},
-            {"id": 4, "title": "第四章 凝气"},
-            {"id": 5, "title": "第五章 天逆"},
-        ]
-    },
-    {
-        "id": "6",
-        "name": "我欲封天",
-        "author": "耳根",
-        "cover": "https://via.placeholder.com/150x200/1abc9c/ffffff?text=我欲封天",
-        "intro": "我命如妖欲封天，踏破苍穹九重天。",
-        "source": "番茄小说",
-        "category": "favorite",
-        "progress": 80,
-        "chapters": [
-            {"id": 1, "title": "第一章 书生孟浩"},
-            {"id": 2, "title": "第二章 靠山宗"},
-            {"id": 3, "title": "第三章 造化"},
-            {"id": 4, "title": "第四章 完美筑基"},
-            {"id": 5, "title": "第五章 封天诀"},
-        ]
-    }
 ]
 
 # 示例章节内容
-CHAPTER_CONTENT = """
+SAMPLE_CONTENT = """
 <p>这是示例章节内容。在实际部署中，这里将显示从书源获取的真实章节内容。</p>
 <p>Web版佩宇Reader支持以下功能：</p>
 <p>1. <strong>书架管理</strong> - 添加、删除、分类管理书籍，支持阅读进度记录</p>
@@ -198,476 +149,127 @@ async def root():
             z-index: 1000;
         }}
         
-        .nav-item {{
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 5px 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-            color: var(--text-secondary);
-        }}
-        
+        .nav-item {{ display: flex; flex-direction: column; align-items: center; padding: 5px 20px; cursor: pointer; transition: all 0.3s; color: var(--text-secondary); }}
         .nav-item.active {{ color: var(--primary); }}
         .nav-item i {{ font-size: 24px; margin-bottom: 4px; }}
         .nav-item span {{ font-size: 12px; }}
         
-        .page {{
-            display: none;
-            padding: 20px;
-            padding-bottom: 80px;
-            min-height: 100vh;
-            animation: fadeIn 0.3s ease;
-        }}
-        
+        .page {{ display: none; padding: 20px; padding-bottom: 80px; min-height: 100vh; animation: fadeIn 0.3s ease; }}
         .page.active {{ display: block; }}
         
-        @keyframes fadeIn {{
-            from {{ opacity: 0; transform: translateY(10px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
-        }}
+        @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
         
-        .header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-top: 10px;
-        }}
-        
-        .header h1 {{
-            font-size: 28px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }}
-        
+        .header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 10px; }}
+        .header h1 {{ font-size: 28px; background: linear-gradient(45deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
         .header-actions {{ display: flex; gap: 15px; }}
         
         .icon-btn {{
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 20px;
-            transition: all 0.3s;
+            width: 40px; height: 40px; border-radius: 50%; background: var(--bg-card);
+            border: 1px solid var(--border); color: var(--text-primary);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 20px; transition: all 0.3s;
         }}
+        .icon-btn:hover {{ background: rgba(0, 212, 255, 0.1); border-color: var(--primary); }}
         
-        .icon-btn:hover {{
-            background: rgba(0, 212, 255, 0.1);
-            border-color: var(--primary);
-        }}
-        
-        .search-bar {{
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }}
-        
+        .search-bar {{ display: flex; gap: 10px; margin-bottom: 20px; }}
         .search-input {{
-            flex: 1;
-            padding: 12px 20px;
-            border-radius: 25px;
-            border: 1px solid var(--border);
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 16px;
-            outline: none;
-            transition: all 0.3s;
+            flex: 1; padding: 12px 20px; border-radius: 25px; border: 1px solid var(--border);
+            background: var(--bg-card); color: var(--text-primary); font-size: 16px;
+            outline: none; transition: all 0.3s;
         }}
-        
-        .search-input:focus {{
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
-        }}
-        
+        .search-input:focus {{ border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1); }}
         .search-input::placeholder {{ color: var(--text-secondary); }}
         
         .search-btn {{
-            padding: 12px 25px;
-            border-radius: 25px;
-            border: none;
+            padding: 12px 25px; border-radius: 25px; border: none;
             background: linear-gradient(45deg, var(--primary), var(--secondary));
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
+            color: white; font-size: 16px; cursor: pointer; transition: all 0.3s;
         }}
+        .search-btn:hover {{ transform: scale(1.05); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3); }}
         
-        .search-btn:hover {{
-            transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
-        }}
-        
-        .category-tabs {{
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-        }}
-        
+        .category-tabs {{ display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }}
         .category-tab {{
-            padding: 8px 20px;
-            border-radius: 20px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-secondary);
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.3s;
+            padding: 8px 20px; border-radius: 20px; background: var(--bg-card);
+            border: 1px solid var(--border); color: var(--text-secondary);
+            cursor: pointer; white-space: nowrap; transition: all 0.3s;
         }}
+        .category-tab.active {{ background: linear-gradient(45deg, var(--primary), var(--secondary)); color: white; border-color: transparent; }}
         
-        .category-tab.active {{
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            color: white;
-            border-color: transparent;
-        }}
-        
-        .books-grid {{
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }}
-        
+        .books-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }}
         @media (min-width: 768px) {{ .books-grid {{ grid-template-columns: repeat(4, 1fr); }} }}
         @media (min-width: 1024px) {{ .books-grid {{ grid-template-columns: repeat(5, 1fr); }} }}
         
-        .book-card {{
-            cursor: pointer;
-            transition: all 0.3s;
-        }}
-        
+        .book-card {{ cursor: pointer; transition: all 0.3s; }}
         .book-card:hover {{ transform: translateY(-5px); }}
+        .book-cover {{ width: 100%; aspect-ratio: 3/4; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 8px; }}
+        .book-title {{ font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }}
+        .book-author {{ font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
+        .book-progress {{ font-size: 11px; color: var(--primary); margin-top: 4px; }}
         
-        .book-cover {{
-            width: 100%;
-            aspect-ratio: 3/4;
-            border-radius: 8px;
-            object-fit: cover;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            margin-bottom: 8px;
-        }}
+        .empty-state {{ text-align: center; padding: 60px 20px; color: var(--text-secondary); }}
         
-        .book-title {{
-            font-size: 14px;
-            color: var(--text-primary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            margin-bottom: 4px;
-        }}
+        .stats-cards {{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }}
+        .stat-card {{ background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; text-align: center; }}
+        .stat-value {{ font-size: 32px; font-weight: bold; background: linear-gradient(45deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }}
+        .stat-label {{ font-size: 14px; color: var(--text-secondary); }}
         
-        .book-author {{
-            font-size: 12px;
-            color: var(--text-secondary);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }}
-        
-        .book-progress {{
-            font-size: 11px;
-            color: var(--primary);
-            margin-top: 4px;
-        }}
-        
-        .empty-state {{
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }}
-        
-        .stats-cards {{
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }}
-        
-        .stat-card {{
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-        }}
-        
-        .stat-value {{
-            font-size: 32px;
-            font-weight: bold;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
-        }}
-        
-        .stat-label {{
-            font-size: 14px;
-            color: var(--text-secondary);
-        }}
-        
-        .settings-list {{
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-        }}
-        
-        .setting-item {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            transition: all 0.3s;
-        }}
-        
+        .settings-list {{ background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }}
+        .setting-item {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: all 0.3s; }}
         .setting-item:last-child {{ border-bottom: none; }}
         .setting-item:hover {{ background: rgba(255,255,255,0.02); }}
-        
-        .setting-left {{
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }}
-        
-        .setting-icon {{
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-        }}
-        
-        .setting-info h3 {{
-            font-size: 16px;
-            color: var(--text-primary);
-            margin-bottom: 2px;
-        }}
-        
-        .setting-info p {{
-            font-size: 13px;
-            color: var(--text-secondary);
-        }}
-        
-        .setting-arrow {{
-            color: var(--text-secondary);
-            font-size: 20px;
-        }}
+        .setting-left {{ display: flex; align-items: center; gap: 15px; }}
+        .setting-icon {{ width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(45deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; font-size: 18px; }}
+        .setting-info h3 {{ font-size: 16px; color: var(--text-primary); margin-bottom: 2px; }}
+        .setting-info p {{ font-size: 13px; color: var(--text-secondary); }}
+        .setting-arrow {{ color: var(--text-secondary); font-size: 20px; }}
         
         .reader-page {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: #1a1a1a;
-            z-index: 2000;
-            display: none;
-            flex-direction: column;
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: #1a1a1a; z-index: 2000; display: none; flex-direction: column;
         }}
-        
         .reader-page.active {{ display: flex; }}
-        
-        .reader-header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
-        }}
-        
-        .reader-title {{
-            font-size: 16px;
-            color: var(--text-primary);
-        }}
-        
-        .reader-content {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            line-height: 1.8;
-            font-size: 18px;
-            color: #ccc;
-        }}
-        
-        .reader-content h2 {{
-            color: var(--text-primary);
-            margin-bottom: 20px;
-            font-size: 22px;
-        }}
-        
-        .reader-content p {{
-            margin-bottom: 15px;
-            text-indent: 2em;
-        }}
-        
-        .reader-toolbar {{
-            display: flex;
-            justify-content: space-around;
-            padding: 15px;
-            background: rgba(0,0,0,0.8);
-            backdrop-filter: blur(10px);
-        }}
-        
-        .reader-btn {{
-            padding: 10px 30px;
-            border-radius: 25px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text-primary);
-            cursor: pointer;
-            transition: all 0.3s;
-        }}
-        
-        .reader-btn:hover {{
-            background: var(--bg-card);
-            border-color: var(--primary);
-        }}
+        .reader-header {{ display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); }}
+        .reader-title {{ font-size: 16px; color: var(--text-primary); }}
+        .reader-content {{ flex: 1; overflow-y: auto; padding: 20px; line-height: 1.8; font-size: 18px; color: #ccc; }}
+        .reader-content h2 {{ color: var(--text-primary); margin-bottom: 20px; font-size: 22px; }}
+        .reader-content p {{ margin-bottom: 15px; text-indent: 2em; }}
+        .reader-toolbar {{ display: flex; justify-content: space-around; padding: 15px; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); }}
+        .reader-btn {{ padding: 10px 30px; border-radius: 25px; border: 1px solid var(--border); background: transparent; color: var(--text-primary); cursor: pointer; transition: all 0.3s; }}
+        .reader-btn:hover {{ background: var(--bg-card); border-color: var(--primary); }}
         
         .chapter-list {{
-            position: fixed;
-            top: 0;
-            right: -100%;
-            width: 80%;
-            max-width: 400px;
-            height: 100%;
-            background: var(--bg-dark);
-            z-index: 2001;
-            transition: right 0.3s ease;
-            display: flex;
-            flex-direction: column;
+            position: fixed; top: 0; right: -100%; width: 80%; max-width: 400px;
+            height: 100%; background: var(--bg-dark); z-index: 2001;
+            transition: right 0.3s ease; display: flex; flex-direction: column;
         }}
-        
         .chapter-list.active {{ right: 0; }}
+        .chapter-header {{ padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }}
+        .chapter-list-content {{ flex: 1; overflow-y: auto; padding: 10px 0; }}
+        .chapter-item {{ padding: 15px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: all 0.2s; color: var(--text-secondary); }}
+        .chapter-item:hover, .chapter-item.active {{ background: rgba(0, 212, 255, 0.1); color: var(--primary); padding-left: 30px; }}
         
-        .chapter-header {{
-            padding: 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }}
-        
-        .chapter-list-content {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px 0;
-        }}
-        
-        .chapter-item {{
-            padding: 15px 20px;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            transition: all 0.2s;
-            color: var(--text-secondary);
-        }}
-        
-        .chapter-item:hover, .chapter-item.active {{
-            background: rgba(0, 212, 255, 0.1);
-            color: var(--primary);
-            padding-left: 30px;
-        }}
-        
-        .overlay {{
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 2000;
-            display: none;
-        }}
-        
+        .overlay {{ position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; }}
         .overlay.active {{ display: block; }}
         
-        .loading {{
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 40px;
-        }}
-        
-        .loading-spinner {{
-            width: 40px;
-            height: 40px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }}
-        
+        .loading {{ display: flex; justify-content: center; align-items: center; padding: 40px; }}
+        .loading-spinner {{ width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }}
         @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
         
-        .source-list {{
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }}
-        
-        .source-item {{
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }}
-        
-        .source-info h3 {{
-            font-size: 16px;
-            color: var(--text-primary);
-            margin-bottom: 4px;
-        }}
-        
-        .source-info p {{
-            font-size: 13px;
-            color: var(--text-secondary);
-        }}
-        
-        .source-toggle {{
-            width: 50px;
-            height: 28px;
-            border-radius: 14px;
-            background: var(--bg-card);
-            border: 2px solid var(--border);
-            position: relative;
-            cursor: pointer;
-            transition: all 0.3s;
-        }}
-        
-        .source-toggle.active {{
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            border-color: transparent;
-        }}
-        
-        .source-toggle::after {{
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: white;
-            top: 2px;
-            left: 2px;
-            transition: all 0.3s;
-        }}
-        
+        .source-list {{ display: flex; flex-direction: column; gap: 10px; }}
+        .source-item {{ background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }}
+        .source-info h3 {{ font-size: 16px; color: var(--text-primary); margin-bottom: 4px; }}
+        .source-info p {{ font-size: 13px; color: var(--text-secondary); }}
+        .source-toggle {{ width: 50px; height: 28px; border-radius: 14px; background: var(--bg-card); border: 2px solid var(--border); position: relative; cursor: pointer; transition: all 0.3s; }}
+        .source-toggle.active {{ background: linear-gradient(45deg, var(--primary), var(--secondary)); border-color: transparent; }}
+        .source-toggle::after {{ content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: all 0.3s; }}
         .source-toggle.active::after {{ left: 26px; }}
+        
+        .toast {{
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); color: white; padding: 15px 30px;
+            border-radius: 10px; z-index: 3000; display: none;
+        }}
+        .toast.show {{ display: block; }}
     </style>
 </head>
 <body>
@@ -882,7 +484,7 @@ async def root():
         </div>
         <div class="reader-content" id="reader-content">
             <h2>第一章 示例章节</h2>
-            {CHAPTER_CONTENT}
+            {SAMPLE_CONTENT}
         </div>
         <div class="reader-toolbar">
             <button class="reader-btn" onclick="prevChapter()">上一章</button>
@@ -900,6 +502,9 @@ async def root():
         </div>
         <div class="chapter-list-content" id="chapter-list-content"></div>
     </div>
+    
+    <!-- Toast提示 -->
+    <div class="toast" id="toast"></div>
 
     <script>
         // 书籍数据
@@ -914,12 +519,20 @@ async def root():
                 {{ name: '番茄小说', url: 'fanqie.com', enabled: false }},
             ],
             settings: {{ fontSize: 18, theme: 'dark' }},
-            stats: {{ books: 6, chapters: 30, time: 12, words: 45 }}
+            stats: {{ books: 3, chapters: 15, time: 8, words: 25 }}
         }};
         
         // 当前阅读状态
         let currentBook = null;
         let currentChapter = 0;
+        
+        // Toast提示
+        function showToast(message) {{
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }}
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {{
@@ -927,32 +540,26 @@ async def root():
         }});
         
         function initApp() {{
-            // 加载本地数据
             loadData();
             
-            // 如果没有书架数据，使用示例数据
             if (appData.bookshelf.length === 0) {{
-                appData.bookshelf = booksData.filter(b => b.category === 'reading' || b.category === 'favorite');
+                appData.bookshelf = booksData.filter(b => b.category === 'reading');
                 saveData();
             }}
             
-            // 渲染页面
             renderBookshelf('all');
             renderDiscover();
             renderSources();
             updateStats();
             
-            // 绑定事件
             bindNavigation();
             bindCategoryTabs();
             
-            // 搜索回车事件
             document.getElementById('search-input')?.addEventListener('keypress', function(e) {{
                 if (e.key === 'Enter') searchBooks();
             }});
         }}
         
-        // 绑定导航
         function bindNavigation() {{
             document.querySelectorAll('.nav-item').forEach(item => {{
                 item.addEventListener('click', function() {{
@@ -964,14 +571,12 @@ async def root():
             }});
         }}
         
-        // 显示页面
         function showPage(pageId) {{
             document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
             window.scrollTo(0, 0);
         }}
         
-        // 绑定分类标签
         function bindCategoryTabs() {{
             document.querySelectorAll('.category-tabs').forEach(tabs => {{
                 tabs.querySelectorAll('.category-tab').forEach(tab => {{
@@ -986,7 +591,6 @@ async def root():
             }});
         }}
         
-        // 渲染书架
         function renderBookshelf(category) {{
             const grid = document.getElementById('bookshelf-grid');
             const empty = document.getElementById('empty-bookshelf');
@@ -1013,7 +617,6 @@ async def root():
             `).join('');
         }}
         
-        // 渲染发现页面
         function renderDiscover() {{
             const grid = document.getElementById('discover-grid');
             grid.innerHTML = booksData.map(book => `
@@ -1025,7 +628,6 @@ async def root():
             `).join('');
         }}
         
-        // 渲染书源
         function renderSources() {{
             const list = document.getElementById('source-list');
             list.innerHTML = appData.sources.map((source, index) => `
@@ -1039,18 +641,41 @@ async def root():
             `).join('');
         }}
         
-        // 搜索书籍
-        function searchBooks() {{
+        // 搜索书籍（调用后端API）
+        async function searchBooks() {{
             const keyword = document.getElementById('search-input').value.trim();
             if (!keyword) {{
-                alert('请输入搜索关键词');
+                showToast('请输入搜索关键词');
                 return;
             }}
             
             const grid = document.getElementById('discover-grid');
             grid.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
             
-            setTimeout(() => {{
+            try {{
+                // 调用后端API搜索
+                const response = await fetch(`/api/search?q=${{encodeURIComponent(keyword)}}`);
+                const data = await response.json();
+                
+                if (data.books && data.books.length > 0) {{
+                    grid.innerHTML = data.books.map(book => `
+                        <div class="book-card" onclick="addToBookshelfFromSearch(${{JSON.stringify(book).replace(/"/g, '&quot;')}})">
+                            <img src="${{book.cover || 'https://via.placeholder.com/150x200/333/fff?text=No+Cover'}}" alt="${{book.name}}" class="book-cover">
+                            <div class="book-title">${{book.name}}</div>
+                            <div class="book-author">${{book.author || '未知作者'}}</div>
+                        </div>
+                    `).join('');
+                }} else {{
+                    grid.innerHTML = `
+                        <div class="empty-state" style="grid-column: 1/-1;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
+                            <p>未找到相关书籍</p>
+                        </div>
+                    `;
+                }}
+            }} catch (error) {{
+                console.error('Search error:', error);
+                // 降级到本地搜索
                 const results = booksData.filter(b => 
                     b.name.includes(keyword) || b.author.includes(keyword)
                 );
@@ -1071,25 +696,23 @@ async def root():
                         </div>
                     `).join('');
                 }}
-            }}, 500);
+            }}
         }}
         
-        // 切换书源
         function toggleSource(index) {{
             appData.sources[index].enabled = !appData.sources[index].enabled;
             renderSources();
             saveData();
         }}
         
-        // 刷新书源
         function refreshSources() {{
-            alert('正在刷新书源...');
+            showToast('正在刷新书源...');
             renderSources();
         }}
         
         // 打开书籍
-        function openBook(bookId) {{
-            currentBook = booksData.find(b => b.id === bookId);
+        async function openBook(bookId) {{
+            currentBook = booksData.find(b => b.id === bookId) || appData.bookshelf.find(b => b.id === bookId);
             if (!currentBook) return;
             
             currentChapter = 0;
@@ -1097,20 +720,80 @@ async def root():
             document.getElementById('reader').classList.add('active');
             document.body.style.overflow = 'hidden';
             
-            loadChapter(0);
-            renderChapterList();
+            // 如果有真实URL，尝试从后端获取章节
+            if (currentBook.url) {{
+                await loadChaptersFromAPI(currentBook.url, currentBook.source);
+            }} else {{
+                loadChapter(0);
+                renderChapterList();
+            }}
         }}
         
-        // 加载章节
-        function loadChapter(index) {{
+        // 从API加载章节
+        async function loadChaptersFromAPI(bookUrl, sourceName) {{
+            try {{
+                const response = await fetch(`/api/chapters?url=${{encodeURIComponent(bookUrl)}}&source=${{encodeURIComponent(sourceName)}}`);
+                const data = await response.json();
+                
+                if (data.chapters && data.chapters.length > 0) {{
+                    currentBook.chapters = data.chapters;
+                    loadChapter(0);
+                    renderChapterList();
+                }} else {{
+                    loadChapter(0);
+                    renderChapterList();
+                }}
+            }} catch (error) {{
+                console.error('Load chapters error:', error);
+                loadChapter(0);
+                renderChapterList();
+            }}
+        }}
+        
+        // 加载章节内容
+        async function loadChapter(index) {{
             if (!currentBook || !currentBook.chapters[index]) return;
             
             currentChapter = index;
             const chapter = currentBook.chapters[index];
+            
+            // 显示加载中
             document.getElementById('reader-content').innerHTML = `
                 <h2>${{chapter.title}}</h2>
-                {CHAPTER_CONTENT}
+                <div class="loading"><div class="loading-spinner"></div></div>
             `;
+            
+            // 如果有真实URL，从API获取内容
+            if (chapter.url) {{
+                try {{
+                    const response = await fetch(`/api/content?url=${{encodeURIComponent(chapter.url)}}&source=${{encodeURIComponent(currentBook.source)}}`);
+                    const data = await response.json();
+                    
+                    if (data.content) {{
+                        document.getElementById('reader-content').innerHTML = `
+                            <h2>${{chapter.title}}</h2>
+                            ${{data.content}}
+                        `;
+                    }} else {{
+                        document.getElementById('reader-content').innerHTML = `
+                            <h2>${{chapter.title}}</h2>
+                            <p>内容加载失败，请稍后重试</p>
+                        `;
+                    }}
+                }} catch (error) {{
+                    console.error('Load content error:', error);
+                    document.getElementById('reader-content').innerHTML = `
+                        <h2>${{chapter.title}}</h2>
+                        <p>内容加载失败</p>
+                    `;
+                }}
+            }} else {{
+                // 使用示例内容
+                document.getElementById('reader-content').innerHTML = `
+                    <h2>${{chapter.title}}</h2>
+                    {SAMPLE_CONTENT}
+                `;
+            }}
             
             // 更新章节列表高亮
             document.querySelectorAll('.chapter-item').forEach((item, i) => {{
@@ -1118,7 +801,6 @@ async def root():
             }});
         }}
         
-        // 渲染章节列表
         function renderChapterList() {{
             if (!currentBook) return;
             
@@ -1130,59 +812,68 @@ async def root():
             `).join('');
         }}
         
-        // 选择章节
         function selectChapter(index) {{
             loadChapter(index);
             toggleChapterList();
         }}
         
-        // 上一章
         function prevChapter() {{
             if (currentChapter > 0) {{
                 loadChapter(currentChapter - 1);
             }} else {{
-                alert('已经是第一章了');
+                showToast('已经是第一章了');
             }}
         }}
         
-        // 下一章
         function nextChapter() {{
             if (currentBook && currentChapter < currentBook.chapters.length - 1) {{
                 loadChapter(currentChapter + 1);
             }} else {{
-                alert('已经是最后一章了');
+                showToast('已经是最后一章了');
             }}
         }}
         
-        // 关闭阅读器
         function closeReader() {{
             document.getElementById('reader').classList.remove('active');
             document.body.style.overflow = '';
             currentBook = null;
         }}
         
-        // 切换章节列表
         function toggleChapterList() {{
             document.getElementById('chapter-list').classList.toggle('active');
             document.getElementById('chapter-overlay').classList.toggle('active');
         }}
         
-        // 添加到书架
         function addToBookshelf(bookId) {{
             const book = booksData.find(b => b.id === bookId);
             if (!book) return;
             
             if (appData.bookshelf.find(b => b.id === bookId)) {{
-                alert('《' + book.name + '》已在书架中');
+                showToast('《' + book.name + '》已在书架中');
                 return;
             }}
             
             appData.bookshelf.push({{...book, progress: 0, category: 'reading'}});
             saveData();
-            alert('《' + book.name + '》已添加到书架');
+            showToast('《' + book.name + '》已添加到书架');
         }}
         
-        // 显示搜索
+        function addToBookshelfFromSearch(book) {{
+            if (!book || !book.name) return;
+            
+            // 生成唯一ID
+            book.id = 'search_' + Date.now();
+            
+            if (appData.bookshelf.find(b => b.name === book.name && b.author === book.author)) {{
+                showToast('《' + book.name + '》已在书架中');
+                return;
+            }}
+            
+            appData.bookshelf.push({{...book, progress: 0, category: 'reading'}});
+            saveData();
+            showToast('《' + book.name + '》已添加到书架');
+        }}
+        
         function showSearch() {{
             showPage('discover-page');
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -1190,12 +881,10 @@ async def root():
             document.getElementById('search-input').focus();
         }}
         
-        // 显示添加书籍
         function showAddBook() {{
             showSearch();
         }}
         
-        // 更新统计
         function updateStats() {{
             document.getElementById('stat-books').textContent = appData.stats.books;
             document.getElementById('stat-chapters').textContent = appData.stats.chapters;
@@ -1203,15 +892,13 @@ async def root():
             document.getElementById('stat-words').textContent = appData.stats.words;
         }}
         
-        // 设置相关
-        function showReadingSettings() {{ alert('阅读设置：字体大小、背景颜色、翻页效果'); }}
-        function showDownloadSettings() {{ alert('下载管理：自动下载、缓存清理'); }}
-        function showThemeSettings() {{ alert('主题设置：深色/浅色模式'); }}
-        function showDataSettings() {{ alert('数据同步：备份和恢复'); }}
-        function showReaderSettings() {{ alert('阅读器设置'); }}
-        function showAbout() {{ alert('佩宇Reader v2.0\\nAI智能阅读器\\n© 2025 佩宇Reader'); }}
+        function showReadingSettings() {{ showToast('阅读设置：字体大小、背景颜色、翻页效果'); }}
+        function showDownloadSettings() {{ showToast('下载管理：自动下载、缓存清理'); }}
+        function showThemeSettings() {{ showToast('主题设置：深色/浅色模式'); }}
+        function showDataSettings() {{ showToast('数据同步：备份和恢复'); }}
+        function showReaderSettings() {{ showToast('阅读器设置'); }}
+        function showAbout() {{ showToast('佩宇Reader v2.1 - 支持书源解析'); }}
         
-        // 本地存储
         function saveData() {{
             localStorage.setItem('peiyu_reader_data', JSON.stringify(appData));
         }}
@@ -1227,15 +914,18 @@ async def root():
 </html>"""
     return html_content
 
+# API端点
 @app.get("/api/status")
 async def status():
     """API状态检查"""
+    sources = load_book_sources()
     return {
         "status": "running",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "name": "佩宇Reader",
-        "features": ["bookshelf", "reader", "search", "sources", "stats", "settings"],
-        "books_count": len(SAMPLE_BOOKS)
+        "features": ["bookshelf", "reader", "search", "sources", "stats", "settings", "source_parsing"],
+        "books_count": len(SAMPLE_BOOKS),
+        "sources_count": len(sources)
     }
 
 @app.get("/api/books")
@@ -1263,20 +953,58 @@ async def get_sources():
         "count": len(sources)
     }
 
-@app.get("/api/chapter/{{book_id}}/{{chapter_id}}")
-async def get_chapter(book_id: str, chapter_id: int):
+# 书源解析API
+@app.get("/api/search")
+async def search_books(q: str = Query(..., description="搜索关键词")):
+    """从书源搜索书籍"""
+    try:
+        # 尝试使用书源解析器搜索
+        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
+        if os.path.exists(sources_file):
+            from source_parser import BookSourceManager
+            manager = BookSourceManager(sources_file)
+            results = manager.search_all(q)
+            if results:
+                return {"books": results, "count": len(results), "source": "live"}
+    except Exception as e:
+        print(f"Live search error: {e}")
+    
+    # 降级到示例数据搜索
+    results = [b for b in SAMPLE_BOOKS if q.lower() in b["name"].lower() or q.lower() in b["author"].lower()]
+    return {"books": results, "count": len(results), "source": "sample"}
+
+@app.get("/api/chapters")
+async def get_chapters(url: str = Query(..., description="书籍URL"), source: str = Query(..., description="书源名称")):
+    """获取章节列表"""
+    try:
+        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
+        if os.path.exists(sources_file):
+            from source_parser import BookSourceManager
+            manager = BookSourceManager(sources_file)
+            parser = manager.get_parser(source)
+            if parser:
+                chapters = parser.get_chapters(url)
+                if chapters:
+                    return {"chapters": chapters, "count": len(chapters)}
+    except Exception as e:
+        print(f"Get chapters error: {e}")
+    
+    return JSONResponse(status_code=404, content={"error": "无法获取章节列表"})
+
+@app.get("/api/content")
+async def get_content(url: str = Query(..., description="章节URL"), source: str = Query(..., description="书源名称")):
     """获取章节内容"""
-    book = next((b for b in SAMPLE_BOOKS if b["id"] == book_id), None)
-    if not book:
-        return JSONResponse(status_code=404, content={"error": "书籍不存在"})
+    try:
+        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
+        if os.path.exists(sources_file):
+            from source_parser import BookSourceManager
+            manager = BookSourceManager(sources_file)
+            parser = manager.get_parser(source)
+            if parser:
+                content = parser.get_content(url)
+                if content:
+                    return {"content": content}
+    except Exception as e:
+        print(f"Get content error: {e}")
     
-    chapter = next((c for c in book.get("chapters", []) if c["id"] == chapter_id), None)
-    if not chapter:
-        return JSONResponse(status_code=404, content={"error": "章节不存在"})
-    
-    return {
-        "book_id": book_id,
-        "chapter_id": chapter_id,
-        "title": chapter["title"],
-        "content": CHAPTER_CONTENT
-    }
+    return JSONResponse(status_code=404, content={"error": "无法获取章节内容"})
