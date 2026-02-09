@@ -1,20 +1,11 @@
 """
 佩宇Reader - Vercel Serverless部署入口
-精简版Web服务，移除不兼容的依赖
+精简版Web服务
 """
-import sys
-import os
-from pathlib import Path
-
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 import json
+import os
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -23,33 +14,27 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# 静态文件和模板
-static_dir = project_root / "web" / "static"
-templates_dir = project_root / "web" / "static"
-
-# 挂载静态文件
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
 # 加载书源
 def load_book_sources():
     """加载书源配置"""
-    sources_file = project_root / "sources" / "book_sources.json"
-    if sources_file.exists():
-        with open(sources_file, 'r', encoding='utf-8') as f:
-            return json.load(f)
+    try:
+        # Vercel环境下文件路径
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
+        
+        if os.path.exists(sources_file):
+            with open(sources_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error loading sources: {e}")
     return []
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """首页"""
-    index_file = static_dir / "index.html"
-    if index_file.exists():
-        with open(index_file, 'r', encoding='utf-8') as f:
-            return f.read()
     return """
     <!DOCTYPE html>
-    <html>
+    <html lang="zh-CN">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -94,10 +79,24 @@ async def root():
                 border-radius: 12px;
                 padding: 20px;
                 border: 1px solid rgba(255,255,255,0.1);
+                transition: transform 0.3s;
+            }
+            .feature-card:hover {
+                transform: translateY(-5px);
+                background: rgba(255,255,255,0.08);
             }
             .feature-icon {
-                font-size: 2rem;
-                margin-bottom: 10px;
+                font-size: 2.5rem;
+                margin-bottom: 15px;
+            }
+            .feature-card h3 {
+                font-size: 1.2rem;
+                margin-bottom: 8px;
+                color: #00d4ff;
+            }
+            .feature-card p {
+                color: #888;
+                font-size: 0.9rem;
             }
             .status {
                 margin-top: 2rem;
@@ -105,6 +104,7 @@ async def root():
                 background: rgba(0,212,255,0.1);
                 border-radius: 25px;
                 border: 1px solid rgba(0,212,255,0.3);
+                display: inline-block;
             }
             .status-dot {
                 display: inline-block;
@@ -119,23 +119,43 @@ async def root():
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
             }
+            .links {
+                margin-top: 2rem;
+            }
+            .links a {
+                color: #00d4ff;
+                text-decoration: none;
+                margin: 0 15px;
+                padding: 8px 16px;
+                border: 1px solid rgba(0,212,255,0.3);
+                border-radius: 20px;
+                transition: all 0.3s;
+            }
+            .links a:hover {
+                background: rgba(0,212,255,0.1);
+            }
+            footer {
+                margin-top: 3rem;
+                color: #666;
+                font-size: 0.85rem;
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>✨ 佩宇Reader</h1>
-            <p class="subtitle">AI智能阅读器 - Web版</p>
+            <p class="subtitle">AI智能阅读器 - Web版 v2.0</p>
             
             <div class="features">
                 <div class="feature-card">
                     <div class="feature-icon">📚</div>
                     <h3>海量书源</h3>
-                    <p>支持Legado格式书源</p>
+                    <p>支持Legado格式书源，内置多源</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🤖</div>
                     <h3>AI推荐</h3>
-                    <p>智能个性化推荐</p>
+                    <p>智能个性化书籍推荐</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📊</div>
@@ -145,18 +165,25 @@ async def root():
                 <div class="feature-card">
                     <div class="feature-icon">🔊</div>
                     <h3>语音朗读</h3>
-                    <p>TTS真人语音</p>
+                    <p>TTS真人语音合成</p>
                 </div>
             </div>
             
             <div class="status">
                 <span class="status-dot"></span>
-                服务运行正常 | 版本 2.0.0
+                🟢 服务运行正常
             </div>
             
-            <p style="margin-top: 2rem; color: #666;">
-                完整功能请使用桌面版或等待Web版功能完善
-            </p>
+            <div class="links">
+                <a href="/api/status">API状态</a>
+                <a href="/api/sources">书源列表</a>
+                <a href="https://github.com/11223456789/peiyu" target="_blank">GitHub</a>
+            </div>
+            
+            <footer>
+                <p>完整功能请使用桌面版 CLI 版本</p>
+                <p style="margin-top: 10px;">© 2025 佩宇Reader | Powered by FastAPI & Vercel</p>
+            </footer>
         </div>
     </body>
     </html>
@@ -169,14 +196,24 @@ async def status():
         "status": "running",
         "version": "2.0.0",
         "name": "佩宇Reader",
-        "features": ["book_source", "ai_recommendation", "tts", "analytics"]
+        "description": "AI智能阅读器",
+        "features": ["book_source", "ai_recommendation", "tts", "analytics"],
+        "endpoints": {
+            "/": "首页",
+            "/api/status": "状态检查",
+            "/api/sources": "书源列表"
+        }
     }
 
 @app.get("/api/sources")
 async def get_sources():
     """获取书源列表"""
     sources = load_book_sources()
-    return {"sources": sources, "count": len(sources)}
+    return {
+        "sources": sources,
+        "count": len(sources),
+        "message": "书源加载成功" if sources else "暂无书源"
+    }
 
 # Vercel handler
 handler = app
