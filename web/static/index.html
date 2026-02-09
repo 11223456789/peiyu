@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>佩宇Reader Web - AI智能阅读</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --accent-color: #ec4899;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+            min-height: 100vh;
+            color: var(--text-primary);
+        }
+        
+        /* 星空背景 */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+        
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        /* 主容器 */
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 头部 */
+        header {
+            text-align: center;
+            padding: 40px 0;
+        }
+        
+        .logo {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+        
+        /* 用户状态栏 */
+        .user-stats {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        /* 导航 */
+        nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .nav-btn {
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid var(--primary-color);
+            color: var(--text-primary);
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1rem;
+        }
+        
+        .nav-btn:hover, .nav-btn.active {
+            background: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+        }
+        
+        /* 内容区域 */
+        .content {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid var(--border-color);
+            min-height: 500px;
+        }
+        
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 搜索框 */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .search-input {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .search-btn {
+            background: var(--primary-color);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        .search-btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        /* 书籍卡片 */
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .book-card {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .book-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2);
+            border-color: var(--primary-color);
+        }
+        
+        .book-cover {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+        }
+        
+        .book-info {
+            padding: 15px;
+        }
+        
+        .book-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .book-author {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .book-progress {
+            margin-top: 10px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .book-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+        
+        /* 成就卡片 */
+        .achievement-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .achievement-card {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s;
+        }
+        
+        .achievement-card.unlocked {
+            border-color: var(--accent-color);
+            background: rgba(236, 72, 153, 0.1);
+        }
+        
+        .achievement-icon {
+            font-size: 2rem;
+        }
+        
+        .achievement-info h4 {
+            margin-bottom: 5px;
+        }
+        
+        .achievement-info p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        /* TTS控制 */
+        .tts-control {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .tts-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .tts-btn {
+            background: var(--primary-color);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tts-btn:hover {
+            background: var(--secondary-color);
+        }
+        
+        .tts-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 2rem;
+            }
+            
+            .book-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            nav {
+                gap: 5px;
+            }
+            
+            .nav-btn {
+                padding: 10px 15px;
+                font-size: 0.875rem;
+            }
+        }
+        
+        /* 加载动画 */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 隐藏 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- 星空背景 -->
+    <div class="stars" id="stars"></div>
+    
+    <div class="container">
+        <!-- 头部 -->
+        <header>
+            <h1 class="logo">✨ 佩宇Reader</h1>
+            <p class="subtitle">AI智能阅读 · 深度分析 · 游戏化体验</p>
+        </header>
+        
+        <!-- 用户状态 -->
+        <div class="user-stats">
+            <div class="stat-item">
+                <div class="stat-value" id="user-level">Lv.1</div>
+                <div class="stat-label">阅读新手</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="user-points">0 ⭐</div>
+                <div class="stat-label">总点数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="achievements-count">0/40</div>
+                <div class="stat-label">成就进度</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="books-count">0</div>
+                <div class="stat-label">书架书籍</div>
+            </div>
+        </div>
+        
+        <!-- 导航 -->
+        <nav>
+            <button class="nav-btn active" data-section="recommend">🔮 AI推荐</button>
+            <button class="nav-btn" data-section="search">🔍 搜索</button>
+            <button class="nav-btn" data-section="bookshelf">📚 书架</button>
+            <button class="nav-btn" data-section="achievements">🏆 成就</button>
+            <button class="nav-btn" data-section="analytics">📊 分析</button>
+        </nav>
+        
+        <!-- 内容区域 -->
+        <div class="content">
+            <!-- AI推荐 -->
+            <section id="recommend-section">
+                <h2 class="section-title">🔮 为你推荐</h2>
+                <div id="recommendations-list" class="book-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </section>
+            
+            <!-- 搜索 -->
+            <section id="search-section" class="hidden">
+                <h2 class="section-title">🔍 搜索书籍</h2>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="search-input" placeholder="输入书名或作者...">
+                    <button class="search-btn" onclick="searchBooks()">搜索</button>
+                </div>
+                <div id="search-results" class="book-grid"></div>
+            </section>
+            
+            <!-- 书架 -->
+            <section id="bookshelf-section" class="hidden">
+                <h2 class="section-title">📚 我的书架</h2>
+                <div id="bookshelf-list" class="book-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </section>
+            
+            <!-- 成就 -->
+            <section id="achievements-section" class="hidden">
+                <h2 class="section-title">🏆 成就中心</h2>
+                <div id="achievements-list" class="achievement-grid">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </section>
+            
+            <!-- 分析 -->
+            <section id="analytics-section" class="hidden">
+                <h2 class="section-title">📊 阅读分析</h2>
+                <div id="analytics-content">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <script>
+        // API基础URL
+        const API_BASE = 'http://localhost:8000/api';
+        
+        // 创建星空背景
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+        
+        // 导航切换
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const section = btn.dataset.section;
+                document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+                document.getElementById(section + '-section').classList.remove('hidden');
+                
+                // 加载对应数据
+                if (section === 'recommend') loadRecommendations();
+                if (section === 'bookshelf') loadBookshelf();
+                if (section === 'achievements') loadAchievements();
+                if (section === 'analytics') loadAnalytics();
+            });
+        });
+        
+        // 加载用户统计
+        async function loadUserStats() {
+            try {
+                const response = await fetch(`${API_BASE}/achievements/user-stats`);
+                const data = await response.json();
+                
+                document.getElementById('user-level').textContent = `Lv.${data.level}`;
+                document.getElementById('user-points').textContent = `${data.points} ⭐`;
+                document.getElementById('achievements-count').textContent = 
+                    `${data.achievements_unlocked}/${data.achievements_total}`;
+            } catch (error) {
+                console.error('加载用户统计失败:', error);
+            }
+        }
+        
+        // 加载推荐
+        async function loadRecommendations() {
+            try {
+                const response = await fetch(`${API_BASE}/recommendations?limit=8`);
+                const data = await response.json();
+                
+                const container = document.getElementById('recommendations-list');
+                container.innerHTML = data.recommendations.map(book => `
+                    <div class="book-card">
+                        <div class="book-cover">📖</div>
+                        <div class="book-info">
+                            <div class="book-title">${book.name}</div>
+                            <div class="book-author">${book.author}</div>
+                            <div class="book-progress">
+                                <div class="book-progress-bar" style="width: ${(book.recommend_score || 0) * 10}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载推荐失败:', error);
+            }
+        }
+        
+        // 搜索书籍
+        async function searchBooks() {
+            const keyword = document.getElementById('search-input').value;
+            if (!keyword) return;
+            
+            const container = document.getElementById('search-results');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword })
+                });
+                const data = await response.json();
+                
+                container.innerHTML = data.results.map(book => `
+                    <div class="book-card">
+                        <div class="book-cover">📚</div>
+                        <div class="book-info">
+                            <div class="book-title">${book.name}</div>
+                            <div class="book-author">${book.author}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('搜索失败:', error);
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">搜索失败</p>';
+            }
+        }
+        
+        // 加载书架
+        async function loadBookshelf() {
+            try {
+                const response = await fetch(`${API_BASE}/bookshelf`);
+                const data = await response.json();
+                
+                document.getElementById('books-count').textContent = data.length;
+                
+                const container = document.getElementById('bookshelf-list');
+                if (data.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">书架是空的</p>';
+                    return;
+                }
+                
+                container.innerHTML = data.map(book => `
+                    <div class="book-card">
+                        <div class="book-cover">📖</div>
+                        <div class="book-info">
+                            <div class="book-title">${book.name}</div>
+                            <div class="book-author">${book.author}</div>
+                            <div class="book-progress">
+                                <div class="book-progress-bar" style="width: ${(book.progress || 0) * 100}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载书架失败:', error);
+            }
+        }
+        
+        // 加载成就
+        async function loadAchievements() {
+            try {
+                const response = await fetch(`${API_BASE}/achievements`);
+                const data = await response.json();
+                
+                const container = document.getElementById('achievements-list');
+                container.innerHTML = data.achievements.map(ach => `
+                    <div class="achievement-card ${ach.unlocked ? 'unlocked' : ''}">
+                        <div class="achievement-icon">${ach.icon}</div>
+                        <div class="achievement-info">
+                            <h4>${ach.name}</h4>
+                            <p>${ach.description}</p>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载成就失败:', error);
+            }
+        }
+        
+        // 加载分析
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`${API_BASE}/analytics/stats`);
+                const data = await response.json();
+                
+                document.getElementById('analytics-content').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div class="stat-item" style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 12px;">
+                            <div class="stat-value">${data.total_books}</div>
+                            <div class="stat-label">总书籍</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 12px;">
+                            <div class="stat-value">${data.total_time}</div>
+                            <div class="stat-label">阅读时长(分钟)</div>
+                        </div>
+                        <div class="stat-item" style="background: rgba(15, 23, 42, 0.6); padding: 20px; border-radius: 12px;">
+                            <div class="stat-value">${data.current_streak}</div>
+                            <div class="stat-label">连续阅读(天)</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('加载分析失败:', error);
+            }
+        }
+        
+        // 初始化
+        createStars();
+        loadUserStats();
+        loadRecommendations();
+        loadBookshelf();
+    </script>
+</body>
+</html>

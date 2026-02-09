@@ -1,0 +1,40 @@
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.3
+jsonpath-ng>=1.6.0
+pyyaml>=6.0.1
+rich>=13.7.0
+prompt-toolkit>=3.0.43
+aiohttp>=3.9.1
+asyncio
+html5lib>=1.1
+pydantic>=2.5.0
+click>=8.1.0
+
+# TTS语音合成
+edge-tts>=6.1.9
+pygame>=2.5.2
+
+# Web后端
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-multipart>=0.0.6
+
+# 数据库
+sqlalchemy>=2.0.25
+alembic>=1.13.1
+
+# 缓存
+redis>=5.0.1
+
+# 任务队列
+celery>=5.3.6
+
+# 安全
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-jwt>=4.1.0
+
+# 工具
+python-dotenv>=1.0.0
+httpx>=0.26.0
