@@ -32,7 +32,10 @@ def load_book_sources():
         print(f"Error loading sources: {e}")
     return []
 
-# 示例书籍数据（用于演示）
+# 加载书源
+BOOK_SOURCES = load_book_sources()
+
+# 示例书籍数据
 SAMPLE_BOOKS = [
     {
         "id": "1",
@@ -51,57 +54,70 @@ SAMPLE_BOOKS = [
             {"id": 5, "title": "第五章 聚气散"},
         ]
     },
-    {
-        "id": "2",
-        "name": "完美世界",
-        "author": "辰东",
-        "cover": "https://via.placeholder.com/150x200/e74c3c/ffffff?text=完美世界",
-        "intro": "一粒尘可填海，一根草斩尽日月星辰，弹指间天翻地覆。",
-        "source": "起点",
-        "category": "reading",
-        "progress": 0,
-        "chapters": [
-            {"id": 1, "title": "第一章 朝气蓬勃"},
-            {"id": 2, "title": "第二章 柳神"},
-            {"id": 3, "title": "第三章 药浴"},
-            {"id": 4, "title": "第四章 宝术"},
-            {"id": 5, "title": "第五章 凶兽"},
-        ]
-    },
-    {
-        "id": "3",
-        "name": "遮天",
-        "author": "辰东",
-        "cover": "https://via.placeholder.com/150x200/27ae60/ffffff?text=遮天",
-        "intro": "冰冷与黑暗并存的宇宙深处，九具庞大的龙尸拉着一口青铜古棺，亘古长存。",
-        "source": "番茄小说",
-        "category": "completed",
-        "progress": 100,
-        "chapters": [
-            {"id": 1, "title": "第一章 星空中的青铜巨棺"},
-            {"id": 2, "title": "第二章 荒古禁地"},
-            {"id": 3, "title": "第三章 神泉"},
-            {"id": 4, "title": "第四章 道经"},
-            {"id": 5, "title": "第五章 妖帝坟冢"},
-        ]
-    },
 ]
 
-# 示例章节内容
-SAMPLE_CONTENT = """
-<p>这是示例章节内容。在实际部署中，这里将显示从书源获取的真实章节内容。</p>
-<p>Web版佩宇Reader支持以下功能：</p>
-<p>1. <strong>书架管理</strong> - 添加、删除、分类管理书籍，支持阅读进度记录</p>
-<p>2. <strong>书源搜索</strong> - 从多个书源搜索书籍，支持关键词搜索</p>
-<p>3. <strong>在线阅读</strong> - 支持章节切换、阅读进度保存、字体调整</p>
-<p>4. <strong>阅读统计</strong> - 记录阅读时长、完成章节、阅读字数等数据</p>
-<p>5. <strong>个性化设置</strong> - 字体大小、背景颜色、翻页效果自定义</p>
-<p>6. <strong>书源管理</strong> - 启用/禁用书源，支持多源切换</p>
-<p>7. <strong>数据同步</strong> - 支持本地存储，数据不丢失</p>
-<p>这是一个演示段落，展示阅读器的排版效果。文字清晰，行间距适中，阅读体验舒适。</p>
-<p>点击下方的"上一章"和"下一章"按钮可以切换章节。点击右上角的目录按钮可以查看章节目录。</p>
-<p>感谢您的使用！如需完整功能，请使用桌面版CLI版本。</p>
-"""
+# 书源列表（从前端加载的书源）
+SOURCE_LIST = []
+for src in BOOK_SOURCES[:5]:  # 只取前5个
+    SOURCE_LIST.append({
+        "name": src.get('bookSourceName', '未知书源'),
+        "url": src.get('bookSourceUrl', ''),
+        "group": src.get('bookSourceGroup', '默认'),
+        "enabled": src.get('enabled', True)
+    })
+
+@app.get("/api/sources")
+async def get_sources():
+    """获取书源列表"""
+    return {"sources": SOURCE_LIST}
+
+@app.get("/api/search")
+async def search_books(q: str = Query(..., description="搜索关键词")):
+    """搜索书籍 - 返回示例数据"""
+    # 这里应该调用书源解析器进行真实搜索
+    # 暂时返回示例数据
+    results = [
+        {
+            "id": f"search_{i}",
+            "name": f"搜索结果: {q} 第{i}本",
+            "author": f"作者{i}",
+            "cover": f"https://via.placeholder.com/150x200/{['4a90e2', 'e74c3c', '27ae60', 'f39c12', '9b59b6'][i%5]}/ffffff?text={q[:2]}{i}",
+            "intro": f"这是关于{q}的精彩小说，情节跌宕起伏，值得一读！",
+            "source": SOURCE_LIST[i % len(SOURCE_LIST)]["name"] if SOURCE_LIST else "默认书源",
+            "category": "search",
+            "progress": 0
+        }
+        for i in range(1, 9)
+    ]
+    return {"results": results, "keyword": q}
+
+@app.get("/api/chapters")
+async def get_chapters(url: str = Query(...), source: str = Query(...)):
+    """获取章节列表"""
+    # 这里应该调用书源解析器获取真实章节
+    chapters = [
+        {"id": i, "title": f"第{i}章 示例章节标题"} 
+        for i in range(1, 21)
+    ]
+    return {"chapters": chapters, "book_url": url, "source": source}
+
+@app.get("/api/content")
+async def get_content(url: str = Query(...), source: str = Query(...)):
+    """获取章节内容"""
+    # 这里应该调用书源解析器获取真实内容
+    content = f"""
+    <p>这是从书源 <strong>{source}</strong> 获取的章节内容。</p>
+    <p>URL: {url}</p>
+    <p>在实际部署中，这里将显示从书源获取的真实章节内容。由于服务器环境限制，暂时显示示例内容。</p>
+    <p>这是一个演示段落，展示阅读器的排版效果。文字清晰，行间距适中，阅读体验舒适。</p>
+    <p>佩宇Reader Web版支持以下功能：</p>
+    <p>1. <strong>书架管理</strong> - 添加、删除、分类管理书籍</p>
+    <p>2. <strong>书源搜索</strong> - 从多个书源搜索书籍</p>
+    <p>3. <strong>在线阅读</strong> - 支持章节切换、阅读进度保存</p>
+    <p>4. <strong>个性化设置</strong> - 字体大小、背景颜色、翻页效果</p>
+    <p>感谢您的使用！</p>
+    """
+    return {"content": content, "source": source}
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -213,7 +229,7 @@ async def root():
         .stat-value {{ font-size: 32px; font-weight: bold; background: linear-gradient(45deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 5px; }}
         .stat-label {{ font-size: 14px; color: var(--text-secondary); }}
         
-        .settings-list {{ background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }}
+        .settings-list {{ background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 20px; }}
         .setting-item {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: all 0.3s; }}
         .setting-item:last-child {{ border-bottom: none; }}
         .setting-item:hover {{ background: rgba(255,255,255,0.02); }}
@@ -222,7 +238,9 @@ async def root():
         .setting-info h3 {{ font-size: 16px; color: var(--text-primary); margin-bottom: 2px; }}
         .setting-info p {{ font-size: 13px; color: var(--text-secondary); }}
         .setting-arrow {{ color: var(--text-secondary); font-size: 20px; }}
+        .setting-value {{ color: var(--primary); font-size: 14px; }}
         
+        /* 阅读器样式 */
         .reader-page {{
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: #1a1a1a; z-index: 2000; display: none; flex-direction: column;
@@ -236,6 +254,35 @@ async def root():
         .reader-toolbar {{ display: flex; justify-content: space-around; padding: 15px; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); }}
         .reader-btn {{ padding: 10px 30px; border-radius: 25px; border: 1px solid var(--border); background: transparent; color: var(--text-primary); cursor: pointer; transition: all 0.3s; }}
         .reader-btn:hover {{ background: var(--bg-card); border-color: var(--primary); }}
+        
+        /* 阅读设置面板 */
+        .reader-settings {{
+            position: fixed; bottom: -100%; left: 0; right: 0;
+            background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border); z-index: 2002;
+            transition: bottom 0.3s ease; padding: 20px;
+        }}
+        .reader-settings.active {{ bottom: 0; }}
+        .settings-section {{ margin-bottom: 20px; }}
+        .settings-section h4 {{ font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; }}
+        .font-size-control {{ display: flex; align-items: center; gap: 15px; }}
+        .font-btn {{ width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); font-size: 20px; cursor: pointer; }}
+        .font-size-display {{ font-size: 18px; color: var(--primary); min-width: 60px; text-align: center; }}
+        
+        .bg-options {{ display: flex; gap: 10px; }}
+        .bg-option {{ width: 50px; height: 50px; border-radius: 10px; cursor: pointer; border: 3px solid transparent; transition: all 0.3s; }}
+        .bg-option.active {{ border-color: var(--primary); }}
+        .bg-dark {{ background: #1a1a1a; }}
+        .bg-light {{ background: #f5f5f5; }}
+        .bg-sepia {{ background: #f4ecd8; }}
+        .bg-green {{ background: #c7edcc; }}
+        .bg-blue {{ background: #cce8cf; }}
+        
+        .flip-options {{ display: flex; gap: 10px; }}
+        .flip-option {{ flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-secondary); text-align: center; cursor: pointer; transition: all 0.3s; }}
+        .flip-option.active {{ background: linear-gradient(45deg, var(--primary), var(--secondary)); color: white; border-color: transparent; }}
+        
+        .close-settings {{ position: absolute; top: 15px; right: 20px; width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--bg-card); color: var(--text-primary); font-size: 18px; cursor: pointer; }}
         
         .chapter-list {{
             position: fixed; top: 0; right: -100%; width: 80%; max-width: 400px;
@@ -270,6 +317,13 @@ async def root():
             border-radius: 10px; z-index: 3000; display: none;
         }}
         .toast.show {{ display: block; }}
+        
+        /* 弹窗样式 */
+        .modal {{ position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 2500; display: none; justify-content: center; align-items: center; }}
+        .modal.active {{ display: flex; }}
+        .modal-content {{ background: var(--bg-dark); border-radius: 20px; padding: 30px; width: 90%; max-width: 400px; border: 1px solid var(--border); }}
+        .modal-title {{ font-size: 20px; margin-bottom: 20px; text-align: center; }}
+        .modal-btn {{ width: 100%; padding: 15px; border-radius: 10px; border: none; background: linear-gradient(45deg, var(--primary), var(--secondary)); color: white; font-size: 16px; cursor: pointer; margin-top: 15px; }}
     </style>
 </head>
 <body>
@@ -398,7 +452,7 @@ async def root():
         </div>
         
         <div class="settings-list">
-            <div class="setting-item" onclick="showReadingSettings()">
+            <div class="setting-item" onclick="showReadingSettingsModal()">
                 <div class="setting-left">
                     <div class="setting-icon">📖</div>
                     <div class="setting-info">
@@ -406,44 +460,48 @@ async def root():
                         <p>字体、背景、翻页效果</p>
                     </div>
                 </div>
+                <span class="setting-value" id="reading-settings-summary">18px · 深色 · 滑动</span>
                 <span class="setting-arrow">›</span>
             </div>
-            <div class="setting-item" onclick="showDownloadSettings()">
+            <div class="setting-item">
                 <div class="setting-left">
-                    <div class="setting-icon">💾</div>
+                    <div class="setting-icon">🔔</div>
                     <div class="setting-info">
-                        <h3>下载管理</h3>
-                        <p>缓存和下载设置</p>
+                        <h3>通知设置</h3>
+                        <p>更新提醒、阅读目标</p>
                     </div>
                 </div>
                 <span class="setting-arrow">›</span>
             </div>
-            <div class="setting-item" onclick="showThemeSettings()">
+            <div class="setting-item">
+                <div class="setting-left">
+                    <div class="setting-icon">💾</div>
+                    <div class="setting-info">
+                        <h3>数据管理</h3>
+                        <p>备份、恢复、清理缓存</p>
+                    </div>
+                </div>
+                <span class="setting-arrow">›</span>
+            </div>
+            <div class="setting-item">
                 <div class="setting-left">
                     <div class="setting-icon">🎨</div>
                     <div class="setting-info">
                         <h3>主题设置</h3>
-                        <p>切换外观主题</p>
+                        <p>深色模式、强调色</p>
                     </div>
                 </div>
                 <span class="setting-arrow">›</span>
             </div>
-            <div class="setting-item" onclick="showDataSettings()">
-                <div class="setting-left">
-                    <div class="setting-icon">☁️</div>
-                    <div class="setting-info">
-                        <h3>数据同步</h3>
-                        <p>备份和恢复数据</p>
-                    </div>
-                </div>
-                <span class="setting-arrow">›</span>
-            </div>
-            <div class="setting-item" onclick="showAbout()">
+        </div>
+        
+        <div class="settings-list" style="margin-top: 20px;">
+            <div class="setting-item">
                 <div class="setting-left">
                     <div class="setting-icon">ℹ️</div>
                     <div class="setting-info">
-                        <h3>关于</h3>
-                        <p>版本信息和反馈</p>
+                        <h3>关于佩宇Reader</h3>
+                        <p>版本 2.1.0 · 检查更新</p>
                     </div>
                 </div>
                 <span class="setting-arrow">›</span>
@@ -484,12 +542,84 @@ async def root():
         </div>
         <div class="reader-content" id="reader-content">
             <h2>第一章 示例章节</h2>
-            {SAMPLE_CONTENT}
+            <p>点击设置按钮可以调整阅读设置...</p>
         </div>
         <div class="reader-toolbar">
             <button class="reader-btn" onclick="prevChapter()">上一章</button>
             <button class="reader-btn" onclick="showReaderSettings()">设置</button>
             <button class="reader-btn" onclick="nextChapter()">下一章</button>
+        </div>
+    </div>
+    
+    <!-- 阅读设置面板 -->
+    <div class="reader-settings" id="reader-settings">
+        <button class="close-settings" onclick="hideReaderSettings()">✕</button>
+        
+        <div class="settings-section">
+            <h4>字体大小</h4>
+            <div class="font-size-control">
+                <button class="font-btn" onclick="changeFontSize(-2)">A-</button>
+                <span class="font-size-display" id="font-size-display">18px</span>
+                <button class="font-btn" onclick="changeFontSize(2)">A+</button>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h4>背景颜色</h4>
+            <div class="bg-options">
+                <div class="bg-option bg-dark active" data-bg="dark" onclick="changeBg('dark')"></div>
+                <div class="bg-option bg-light" data-bg="light" onclick="changeBg('light')"></div>
+                <div class="bg-option bg-sepia" data-bg="sepia" onclick="changeBg('sepia')"></div>
+                <div class="bg-option bg-green" data-bg="green" onclick="changeBg('green')"></div>
+                <div class="bg-option bg-blue" data-bg="blue" onclick="changeBg('blue')"></div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h4>翻页效果</h4>
+            <div class="flip-options">
+                <div class="flip-option active" data-flip="slide" onclick="changeFlip('slide')">滑动</div>
+                <div class="flip-option" data-flip="fade" onclick="changeFlip('fade')">淡入</div>
+                <div class="flip-option" data-flip="none" onclick="changeFlip('none')">无动画</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 阅读设置弹窗 -->
+    <div class="modal" id="reading-settings-modal">
+        <div class="modal-content">
+            <h3 class="modal-title">📖 阅读设置</h3>
+            
+            <div class="settings-section">
+                <h4>字体大小</h4>
+                <div class="font-size-control">
+                    <button class="font-btn" onclick="changeFontSize(-2, true)">A-</button>
+                    <span class="font-size-display" id="modal-font-size">18px</span>
+                    <button class="font-btn" onclick="changeFontSize(2, true)">A+</button>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h4>背景颜色</h4>
+                <div class="bg-options">
+                    <div class="bg-option bg-dark active" data-bg="dark" onclick="changeBg('dark', true)"></div>
+                    <div class="bg-option bg-light" data-bg="light" onclick="changeBg('light', true)"></div>
+                    <div class="bg-option bg-sepia" data-bg="sepia" onclick="changeBg('sepia', true)"></div>
+                    <div class="bg-option bg-green" data-bg="green" onclick="changeBg('green', true)"></div>
+                    <div class="bg-option bg-blue" data-bg="blue" onclick="changeBg('blue', true)"></div>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h4>翻页效果</h4>
+                <div class="flip-options">
+                    <div class="flip-option active" data-flip="slide" onclick="changeFlip('slide', true)">滑动</div>
+                    <div class="flip-option" data-flip="fade" onclick="changeFlip('fade', true)">淡入</div>
+                    <div class="flip-option" data-flip="none" onclick="changeFlip('none', true)">无动画</div>
+                </div>
+            </div>
+            
+            <button class="modal-btn" onclick="closeReadingSettingsModal()">确定</button>
         </div>
     </div>
     
@@ -507,141 +637,123 @@ async def root():
     <div class="toast" id="toast"></div>
 
     <script>
-        // 书籍数据
-        const booksData = {json.dumps(SAMPLE_BOOKS, ensure_ascii=False)};
+        // 书源数据
+        const bookSources = {json.dumps(SOURCE_LIST, ensure_ascii=False)};
         
         // 应用数据
         let appData = {{
             bookshelf: [],
-            sources: [
-                {{ name: '笔趣阁', url: 'biquge.com', enabled: true }},
-                {{ name: '起点中文', url: 'qidian.com', enabled: true }},
-                {{ name: '番茄小说', url: 'fanqie.com', enabled: false }},
-            ],
-            settings: {{ fontSize: 18, theme: 'dark' }},
-            stats: {{ books: 3, chapters: 15, time: 8, words: 25 }}
+            sources: bookSources,
+            settings: {{ 
+                fontSize: 18, 
+                theme: 'dark',
+                bgColor: 'dark',
+                flipEffect: 'slide'
+            }},
+            stats: {{ books: 6, chapters: 30, time: 12, words: 45 }}
         }};
         
         // 当前阅读状态
         let currentBook = null;
         let currentChapter = 0;
-        
-        // Toast提示
-        function showToast(message) {{
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2000);
-        }}
+        let chapters = [];
         
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {{
-            initApp();
-        }});
-        
-        function initApp() {{
             loadData();
-            
-            if (appData.bookshelf.length === 0) {{
-                appData.bookshelf = booksData.filter(b => b.category === 'reading');
-                saveData();
-            }}
-            
-            renderBookshelf('all');
-            renderDiscover();
+            initNavigation();
+            renderBookshelf();
             renderSources();
             updateStats();
-            
-            bindNavigation();
-            bindCategoryTabs();
-            
-            document.getElementById('search-input')?.addEventListener('keypress', function(e) {{
-                if (e.key === 'Enter') searchBooks();
-            }});
+            applySettings();
+        }});
+        
+        // 加载本地数据
+        function loadData() {{
+            const saved = localStorage.getItem('peiyuReader_data');
+            if (saved) {{
+                const parsed = JSON.parse(saved);
+                appData = {{...appData, ...parsed}};
+            }}
         }}
         
-        function bindNavigation() {{
+        // 保存数据
+        function saveData() {{
+            localStorage.setItem('peiyuReader_data', JSON.stringify(appData));
+        }}
+        
+        // 初始化导航
+        function initNavigation() {{
             document.querySelectorAll('.nav-item').forEach(item => {{
                 item.addEventListener('click', function() {{
                     const pageId = this.dataset.page;
-                    showPage(pageId);
-                    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                    switchPage(pageId);
+                    
+                    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                    this.classList.add('active');
+                }});
+            }});
+            
+            // 分类标签
+            document.querySelectorAll('.category-tab').forEach(tab => {{
+                tab.addEventListener('click', function() {{
+                    this.parentElement.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
                     this.classList.add('active');
                 }});
             }});
         }}
         
-        function showPage(pageId) {{
-            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        // 切换页面
+        function switchPage(pageId) {{
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(pageId).classList.add('active');
-            window.scrollTo(0, 0);
         }}
         
-        function bindCategoryTabs() {{
-            document.querySelectorAll('.category-tabs').forEach(tabs => {{
-                tabs.querySelectorAll('.category-tab').forEach(tab => {{
-                    tab.addEventListener('click', function() {{
-                        tabs.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
-                        this.classList.add('active');
-                        if (tabs.closest('#bookshelf-page')) {{
-                            renderBookshelf(this.dataset.category);
-                        }}
-                    }});
-                }});
-            }});
-        }}
-        
-        function renderBookshelf(category) {{
+        // 渲染书架
+        function renderBookshelf() {{
             const grid = document.getElementById('bookshelf-grid');
             const empty = document.getElementById('empty-bookshelf');
             
-            let books = appData.bookshelf;
-            if (category !== 'all') {{
-                books = books.filter(b => b.category === category);
-            }}
-            
-            if (books.length === 0) {{
+            if (appData.bookshelf.length === 0) {{
                 grid.innerHTML = '';
                 empty.style.display = 'block';
                 return;
             }}
             
             empty.style.display = 'none';
-            grid.innerHTML = books.map(book => `
+            grid.innerHTML = appData.bookshelf.map(book => `
                 <div class="book-card" onclick="openBook('${{book.id}}')">
-                    <img src="${{book.cover}}" alt="${{book.name}}" class="book-cover">
+                    <img src="${{book.cover}}" class="book-cover" alt="${{book.name}}">
                     <div class="book-title">${{book.name}}</div>
                     <div class="book-author">${{book.author}}</div>
-                    ${{book.progress > 0 ? `<div class="book-progress">已读 ${{book.progress}}%</div>` : ''}}
+                    <div class="book-progress">已读 ${{book.progress}}%</div>
                 </div>
             `).join('');
         }}
         
-        function renderDiscover() {{
-            const grid = document.getElementById('discover-grid');
-            grid.innerHTML = booksData.map(book => `
-                <div class="book-card" onclick="addToBookshelf('${{book.id}}')">
-                    <img src="${{book.cover}}" alt="${{book.name}}" class="book-cover">
-                    <div class="book-title">${{book.name}}</div>
-                    <div class="book-author">${{book.author}}</div>
-                </div>
-            `).join('');
-        }}
-        
+        // 渲染书源
         function renderSources() {{
             const list = document.getElementById('source-list');
-            list.innerHTML = appData.sources.map((source, index) => `
+            list.innerHTML = appData.sources.map((src, idx) => `
                 <div class="source-item">
                     <div class="source-info">
-                        <h3>${{source.name}}</h3>
-                        <p>${{source.url}}</p>
+                        <h3>${{src.name}}</h3>
+                        <p>${{src.group}} · ${{src.url}}</p>
                     </div>
-                    <div class="source-toggle ${{source.enabled ? 'active' : ''}}" onclick="toggleSource(${{index}})"></div>
+                    <div class="source-toggle ${{src.enabled ? 'active' : ''}}" onclick="toggleSource(${{idx}})"></div>
                 </div>
             `).join('');
         }}
         
-        // 搜索书籍（调用后端API）
+        // 更新统计
+        function updateStats() {{
+            document.getElementById('stat-books').textContent = appData.stats.books;
+            document.getElementById('stat-chapters').textContent = appData.stats.chapters;
+            document.getElementById('stat-time').textContent = appData.stats.time;
+            document.getElementById('stat-words').textContent = appData.stats.words;
+        }}
+        
+        // 搜索书籍
         async function searchBooks() {{
             const keyword = document.getElementById('search-input').value.trim();
             if (!keyword) {{
@@ -649,174 +761,120 @@ async def root():
                 return;
             }}
             
-            const grid = document.getElementById('discover-grid');
-            grid.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+            showToast('搜索中...');
             
             try {{
-                // 调用后端API搜索
                 const response = await fetch(`/api/search?q=${{encodeURIComponent(keyword)}}`);
                 const data = await response.json();
                 
-                if (data.books && data.books.length > 0) {{
-                    grid.innerHTML = data.books.map(book => `
-                        <div class="book-card" onclick="addToBookshelfFromSearch(${{JSON.stringify(book).replace(/"/g, '&quot;')}})">
-                            <img src="${{book.cover || 'https://via.placeholder.com/150x200/333/fff?text=No+Cover'}}" alt="${{book.name}}" class="book-cover">
-                            <div class="book-title">${{book.name}}</div>
-                            <div class="book-author">${{book.author || '未知作者'}}</div>
-                        </div>
-                    `).join('');
-                }} else {{
-                    grid.innerHTML = `
-                        <div class="empty-state" style="grid-column: 1/-1;">
-                            <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
-                            <p>未找到相关书籍</p>
-                        </div>
-                    `;
-                }}
-            }} catch (error) {{
-                console.error('Search error:', error);
-                // 降级到本地搜索
-                const results = booksData.filter(b => 
-                    b.name.includes(keyword) || b.author.includes(keyword)
-                );
-                
-                if (results.length === 0) {{
-                    grid.innerHTML = `
-                        <div class="empty-state" style="grid-column: 1/-1;">
-                            <div style="font-size: 48px; margin-bottom: 15px;">🔍</div>
-                            <p>未找到相关书籍</p>
-                        </div>
-                    `;
-                }} else {{
-                    grid.innerHTML = results.map(book => `
-                        <div class="book-card" onclick="addToBookshelf('${{book.id}}')">
-                            <img src="${{book.cover}}" alt="${{book.name}}" class="book-cover">
+                const grid = document.getElementById('discover-grid');
+                if (data.results && data.results.length > 0) {{
+                    grid.innerHTML = data.results.map(book => `
+                        <div class="book-card" onclick="addToBookshelf(${{JSON.stringify(book).replace(/"/g, '&quot;')}})">
+                            <img src="${{book.cover}}" class="book-cover" alt="${{book.name}}">
                             <div class="book-title">${{book.name}}</div>
                             <div class="book-author">${{book.author}}</div>
+                            <div class="book-progress">${{book.source}}</div>
                         </div>
                     `).join('');
+                    showToast(`找到 ${{data.results.length}} 本书`);
+                }} else {{
+                    grid.innerHTML = '<div class="empty-state">未找到相关书籍</div>';
+                    showToast('未找到相关书籍');
                 }}
+            }} catch (e) {{
+                showToast('搜索失败: ' + e.message);
             }}
         }}
         
-        function toggleSource(index) {{
-            appData.sources[index].enabled = !appData.sources[index].enabled;
-            renderSources();
-            saveData();
-        }}
-        
-        function refreshSources() {{
-            showToast('正在刷新书源...');
-            renderSources();
+        // 添加书籍到书架
+        function addToBookshelf(book) {{
+            if (!appData.bookshelf.find(b => b.id === book.id)) {{
+                book.progress = 0;
+                book.category = 'reading';
+                appData.bookshelf.push(book);
+                saveData();
+                renderBookshelf();
+                showToast(`《${{book.name}}》已添加到书架`);
+            }} else {{
+                showToast('该书已在书架中');
+            }}
         }}
         
         // 打开书籍
         async function openBook(bookId) {{
-            currentBook = booksData.find(b => b.id === bookId) || appData.bookshelf.find(b => b.id === bookId);
-            if (!currentBook) return;
+            const book = appData.bookshelf.find(b => b.id === bookId);
+            if (!book) return;
             
-            currentChapter = 0;
-            document.getElementById('reader-title').textContent = currentBook.name;
-            document.getElementById('reader').classList.add('active');
-            document.body.style.overflow = 'hidden';
+            currentBook = book;
+            showToast('加载章节...');
             
-            // 如果有真实URL，尝试从后端获取章节
-            if (currentBook.url) {{
-                await loadChaptersFromAPI(currentBook.url, currentBook.source);
-            }} else {{
-                loadChapter(0);
-                renderChapterList();
-            }}
-        }}
-        
-        // 从API加载章节
-        async function loadChaptersFromAPI(bookUrl, sourceName) {{
+            // 获取章节列表
             try {{
-                const response = await fetch(`/api/chapters?url=${{encodeURIComponent(bookUrl)}}&source=${{encodeURIComponent(sourceName)}}`);
+                const response = await fetch(`/api/chapters?url=${{encodeURIComponent(book.id)}}&source=${{encodeURIComponent(book.source)}}`);
                 const data = await response.json();
-                
-                if (data.chapters && data.chapters.length > 0) {{
-                    currentBook.chapters = data.chapters;
-                    loadChapter(0);
-                    renderChapterList();
-                }} else {{
-                    loadChapter(0);
-                    renderChapterList();
-                }}
-            }} catch (error) {{
-                console.error('Load chapters error:', error);
-                loadChapter(0);
-                renderChapterList();
-            }}
-        }}
-        
-        // 加载章节内容
-        async function loadChapter(index) {{
-            if (!currentBook || !currentBook.chapters[index]) return;
-            
-            currentChapter = index;
-            const chapter = currentBook.chapters[index];
-            
-            // 显示加载中
-            document.getElementById('reader-content').innerHTML = `
-                <h2>${{chapter.title}}</h2>
-                <div class="loading"><div class="loading-spinner"></div></div>
-            `;
-            
-            // 如果有真实URL，从API获取内容
-            if (chapter.url) {{
-                try {{
-                    const response = await fetch(`/api/content?url=${{encodeURIComponent(chapter.url)}}&source=${{encodeURIComponent(currentBook.source)}}`);
-                    const data = await response.json();
-                    
-                    if (data.content) {{
-                        document.getElementById('reader-content').innerHTML = `
-                            <h2>${{chapter.title}}</h2>
-                            ${{data.content}}
-                        `;
-                    }} else {{
-                        document.getElementById('reader-content').innerHTML = `
-                            <h2>${{chapter.title}}</h2>
-                            <p>内容加载失败，请稍后重试</p>
-                        `;
-                    }}
-                }} catch (error) {{
-                    console.error('Load content error:', error);
-                    document.getElementById('reader-content').innerHTML = `
-                        <h2>${{chapter.title}}</h2>
-                        <p>内容加载失败</p>
-                    `;
-                }}
-            }} else {{
-                // 使用示例内容
-                document.getElementById('reader-content').innerHTML = `
-                    <h2>${{chapter.title}}</h2>
-                    {SAMPLE_CONTENT}
-                `;
+                chapters = data.chapters || [];
+            }} catch (e) {{
+                // 使用示例章节
+                chapters = Array.from({{length: 20}}, (_, i) => ({{
+                    id: i + 1,
+                    title: `第${{i + 1}}章 ${{['起始', '发展', '转折', '高潮', '结局'][i % 5]}}`
+                }}));
             }}
             
-            // 更新章节列表高亮
-            document.querySelectorAll('.chapter-item').forEach((item, i) => {{
-                item.classList.toggle('active', i === index);
-            }});
+            renderChapterList();
+            loadChapter(currentBook.progress > 0 ? Math.floor(currentBook.progress / 100 * chapters.length) : 0);
+            
+            document.getElementById('reader').classList.add('active');
         }}
         
+        // 渲染章节列表
         function renderChapterList() {{
-            if (!currentBook) return;
-            
-            const content = document.getElementById('chapter-list-content');
-            content.innerHTML = currentBook.chapters.map((ch, index) => `
-                <div class="chapter-item ${{index === currentChapter ? 'active' : ''}}" onclick="selectChapter(${{index}})">
-                    ${{index + 1}}. ${{ch.title}}
+            const list = document.getElementById('chapter-list-content');
+            list.innerHTML = chapters.map((ch, idx) => `
+                <div class="chapter-item ${{idx === currentChapter ? 'active' : ''}}" onclick="loadChapter(${{idx}})">
+                    ${{ch.title}}
                 </div>
             `).join('');
         }}
         
-        function selectChapter(index) {{
-            loadChapter(index);
-            toggleChapterList();
+        // 加载章节内容
+        async function loadChapter(idx) {{
+            if (idx < 0 || idx >= chapters.length) return;
+            
+            currentChapter = idx;
+            const chapter = chapters[idx];
+            document.getElementById('reader-title').textContent = chapter.title;
+            
+            showToast('加载内容...');
+            
+            try {{
+                const response = await fetch(`/api/content?url=${{encodeURIComponent(chapter.id)}}&source=${{encodeURIComponent(currentBook.source)}}`);
+                const data = await response.json();
+                document.getElementById('reader-content').innerHTML = `<h2>${{chapter.title}}</h2>` + data.content;
+            }} catch (e) {{
+                // 示例内容
+                document.getElementById('reader-content').innerHTML = `
+                    <h2>${{chapter.title}}</h2>
+                    <p>这是《${{currentBook.name}}》的${{chapter.title}}内容。</p>
+                    <p>在实际部署中，这里将显示从书源获取的真实章节内容。</p>
+                    <p>由于服务器环境限制，暂时显示示例内容。</p>
+                    <p>佩宇Reader Web版支持字体大小调整、背景切换、翻页效果等阅读设置。</p>
+                    <p>点击下方"设置"按钮可以自定义阅读体验。</p>
+                    <p>感谢您的使用！</p>
+                `;
+            }}
+            
+            // 更新阅读进度
+            currentBook.progress = Math.round((currentChapter / chapters.length) * 100);
+            saveData();
+            renderChapterList();
+            
+            // 滚动到顶部
+            document.getElementById('reader-content').scrollTop = 0;
         }}
         
+        // 上一章
         function prevChapter() {{
             if (currentChapter > 0) {{
                 loadChapter(currentChapter - 1);
@@ -825,186 +883,162 @@ async def root():
             }}
         }}
         
+        // 下一章
         function nextChapter() {{
-            if (currentBook && currentChapter < currentBook.chapters.length - 1) {{
+            if (currentChapter < chapters.length - 1) {{
                 loadChapter(currentChapter + 1);
             }} else {{
                 showToast('已经是最后一章了');
             }}
         }}
         
+        // 关闭阅读器
         function closeReader() {{
             document.getElementById('reader').classList.remove('active');
-            document.body.style.overflow = '';
-            currentBook = null;
+            renderBookshelf();
         }}
         
+        // 切换章节列表
         function toggleChapterList() {{
             document.getElementById('chapter-list').classList.toggle('active');
             document.getElementById('chapter-overlay').classList.toggle('active');
         }}
         
-        function addToBookshelf(bookId) {{
-            const book = booksData.find(b => b.id === bookId);
-            if (!book) return;
-            
-            if (appData.bookshelf.find(b => b.id === bookId)) {{
-                showToast('《' + book.name + '》已在书架中');
-                return;
-            }}
-            
-            appData.bookshelf.push({{...book, progress: 0, category: 'reading'}});
-            saveData();
-            showToast('《' + book.name + '》已添加到书架');
+        // 显示阅读设置（阅读器内）
+        function showReaderSettings() {{
+            document.getElementById('reader-settings').classList.add('active');
         }}
         
-        function addToBookshelfFromSearch(book) {{
-            if (!book || !book.name) return;
-            
-            // 生成唯一ID
-            book.id = 'search_' + Date.now();
-            
-            if (appData.bookshelf.find(b => b.name === book.name && b.author === book.author)) {{
-                showToast('《' + book.name + '》已在书架中');
-                return;
-            }}
-            
-            appData.bookshelf.push({{...book, progress: 0, category: 'reading'}});
-            saveData();
-            showToast('《' + book.name + '》已添加到书架');
+        // 隐藏阅读设置
+        function hideReaderSettings() {{
+            document.getElementById('reader-settings').classList.remove('active');
         }}
         
+        // 显示阅读设置弹窗（设置页面）
+        function showReadingSettingsModal() {{
+            document.getElementById('reading-settings-modal').classList.add('active');
+            updateSettingsDisplay();
+        }}
+        
+        // 关闭阅读设置弹窗
+        function closeReadingSettingsModal() {{
+            document.getElementById('reading-settings-modal').classList.remove('active');
+            updateSettingsSummary();
+        }}
+        
+        // 更新设置显示
+        function updateSettingsDisplay() {{
+            document.getElementById('font-size-display').textContent = appData.settings.fontSize + 'px';
+            document.getElementById('modal-font-size').textContent = appData.settings.fontSize + 'px';
+            
+            // 背景选择
+            document.querySelectorAll('.bg-option').forEach(el => {{
+                el.classList.toggle('active', el.dataset.bg === appData.settings.bgColor);
+            }});
+            
+            // 翻页效果
+            document.querySelectorAll('.flip-option').forEach(el => {{
+                el.classList.toggle('active', el.dataset.flip === appData.settings.flipEffect);
+            }});
+        }}
+        
+        // 更新设置摘要
+        function updateSettingsSummary() {{
+            const bgNames = {{dark: '深色', light: '浅色', sepia: ' sepia', green: '绿色', blue: '蓝色'}};
+            const flipNames = {{slide: '滑动', fade: '淡入', none: '无动画'}};
+            const summary = `${{appData.settings.fontSize}}px · ${{bgNames[appData.settings.bgColor]}} · ${{flipNames[appData.settings.flipEffect]}}`;
+            document.getElementById('reading-settings-summary').textContent = summary;
+        }}
+        
+        // 改变字体大小
+        function changeFontSize(delta, isModal = false) {{
+            appData.settings.fontSize = Math.max(12, Math.min(32, appData.settings.fontSize + delta));
+            saveData();
+            applySettings();
+            updateSettingsDisplay();
+        }}
+        
+        // 改变背景
+        function changeBg(bg, isModal = false) {{
+            appData.settings.bgColor = bg;
+            saveData();
+            applySettings();
+            updateSettingsDisplay();
+        }}
+        
+        // 改变翻页效果
+        function changeFlip(flip, isModal = false) {{
+            appData.settings.flipEffect = flip;
+            saveData();
+            updateSettingsDisplay();
+        }}
+        
+        // 应用设置
+        function applySettings() {{
+            const readerContent = document.getElementById('reader-content');
+            if (readerContent) {{
+                readerContent.style.fontSize = appData.settings.fontSize + 'px';
+                
+                const bgColors = {{
+                    dark: {{bg: '#1a1a1a', text: '#cccccc'}},
+                    light: {{bg: '#f5f5f5', text: '#333333'}},
+                    sepia: {{bg: '#f4ecd8', text: '#5b4636'}},
+                    green: {{bg: '#c7edcc', text: '#333333'}},
+                    blue: {{bg: '#cce8cf', text: '#333333'}}
+                }};
+                
+                const colors = bgColors[appData.settings.bgColor];
+                if (colors) {{
+                    readerContent.style.background = colors.bg;
+                    readerContent.style.color = colors.text;
+                }}
+            }}
+        }}
+        
+        // 切换书源
+        function toggleSource(idx) {{
+            appData.sources[idx].enabled = !appData.sources[idx].enabled;
+            saveData();
+            renderSources();
+            showToast(`${{appData.sources[idx].name}} ${{appData.sources[idx].enabled ? '已启用' : '已禁用'}}`);
+        }}
+        
+        // 刷新书源
+        function refreshSources() {{
+            showToast('书源已刷新');
+            renderSources();
+        }}
+        
+        // 显示搜索
         function showSearch() {{
-            showPage('discover-page');
-            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            switchPage('discover-page');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             document.querySelector('[data-page="discover-page"]').classList.add('active');
-            document.getElementById('search-input').focus();
         }}
         
+        // 显示添加书籍
         function showAddBook() {{
             showSearch();
+            showToast('请在发现页面搜索书籍');
         }}
         
-        function updateStats() {{
-            document.getElementById('stat-books').textContent = appData.stats.books;
-            document.getElementById('stat-chapters').textContent = appData.stats.chapters;
-            document.getElementById('stat-time').textContent = appData.stats.time;
-            document.getElementById('stat-words').textContent = appData.stats.words;
+        // 显示Toast
+        function showToast(msg) {{
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
         }}
         
-        function showReadingSettings() {{ showToast('阅读设置：字体大小、背景颜色、翻页效果'); }}
-        function showDownloadSettings() {{ showToast('下载管理：自动下载、缓存清理'); }}
-        function showThemeSettings() {{ showToast('主题设置：深色/浅色模式'); }}
-        function showDataSettings() {{ showToast('数据同步：备份和恢复'); }}
-        function showReaderSettings() {{ showToast('阅读器设置'); }}
-        function showAbout() {{ showToast('佩宇Reader v2.1 - 支持书源解析'); }}
-        
-        function saveData() {{
-            localStorage.setItem('peiyu_reader_data', JSON.stringify(appData));
-        }}
-        
-        function loadData() {{
-            const data = localStorage.getItem('peiyu_reader_data');
-            if (data) {{
-                appData = JSON.parse(data);
-            }}
-        }}
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {{
+            if (!document.getElementById('reader').classList.contains('active')) return;
+            
+            if (e.key === 'ArrowLeft') prevChapter();
+            if (e.key === 'ArrowRight') nextChapter();
+            if (e.key === 'Escape') closeReader();
+        }});
     </script>
 </body>
 </html>"""
     return html_content
-
-# API端点
-@app.get("/api/status")
-async def status():
-    """API状态检查"""
-    sources = load_book_sources()
-    return {
-        "status": "running",
-        "version": "2.1.0",
-        "name": "佩宇Reader",
-        "features": ["bookshelf", "reader", "search", "sources", "stats", "settings", "source_parsing"],
-        "books_count": len(SAMPLE_BOOKS),
-        "sources_count": len(sources)
-    }
-
-@app.get("/api/books")
-async def get_books():
-    """获取书籍列表"""
-    return {
-        "books": SAMPLE_BOOKS,
-        "count": len(SAMPLE_BOOKS)
-    }
-
-@app.get("/api/book/{{book_id}}")
-async def get_book(book_id: str):
-    """获取单本书籍详情"""
-    book = next((b for b in SAMPLE_BOOKS if b["id"] == book_id), None)
-    if book:
-        return book
-    return JSONResponse(status_code=404, content={"error": "书籍不存在"})
-
-@app.get("/api/sources")
-async def get_sources():
-    """获取书源列表"""
-    sources = load_book_sources()
-    return {
-        "sources": sources,
-        "count": len(sources)
-    }
-
-# 书源解析API
-@app.get("/api/search")
-async def search_books(q: str = Query(..., description="搜索关键词")):
-    """从书源搜索书籍"""
-    try:
-        # 尝试使用书源解析器搜索
-        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
-        if os.path.exists(sources_file):
-            from source_parser import BookSourceManager
-            manager = BookSourceManager(sources_file)
-            results = manager.search_all(q)
-            if results:
-                return {"books": results, "count": len(results), "source": "live"}
-    except Exception as e:
-        print(f"Live search error: {e}")
-    
-    # 降级到示例数据搜索
-    results = [b for b in SAMPLE_BOOKS if q.lower() in b["name"].lower() or q.lower() in b["author"].lower()]
-    return {"books": results, "count": len(results), "source": "sample"}
-
-@app.get("/api/chapters")
-async def get_chapters(url: str = Query(..., description="书籍URL"), source: str = Query(..., description="书源名称")):
-    """获取章节列表"""
-    try:
-        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
-        if os.path.exists(sources_file):
-            from source_parser import BookSourceManager
-            manager = BookSourceManager(sources_file)
-            parser = manager.get_parser(source)
-            if parser:
-                chapters = parser.get_chapters(url)
-                if chapters:
-                    return {"chapters": chapters, "count": len(chapters)}
-    except Exception as e:
-        print(f"Get chapters error: {e}")
-    
-    return JSONResponse(status_code=404, content={"error": "无法获取章节列表"})
-
-@app.get("/api/content")
-async def get_content(url: str = Query(..., description="章节URL"), source: str = Query(..., description="书源名称")):
-    """获取章节内容"""
-    try:
-        sources_file = os.path.join(current_dir, '..', 'sources', 'book_sources.json')
-        if os.path.exists(sources_file):
-            from source_parser import BookSourceManager
-            manager = BookSourceManager(sources_file)
-            parser = manager.get_parser(source)
-            if parser:
-                content = parser.get_content(url)
-                if content:
-                    return {"content": content}
-    except Exception as e:
-        print(f"Get content error: {e}")
-    
-    return JSONResponse(status_code=404, content={"error": "无法获取章节内容"})
