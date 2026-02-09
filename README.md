@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ✨ 佩宇Reader 高级版 - PeiYu Reader Advanced
 
 > 完全原创的沉浸式命令行阅读体验 + AI智能系统
@@ -408,3 +409,7 @@ MIT License - 详见 LICENSE 文件
 ---
 
 **佩宇Reader** - 让阅读成为一种享受 ✨
+=======
+# peiyu
+阅读
+>>>>>>> db86e0b9a77d4d4094d12efd61441a9aa885eabb
