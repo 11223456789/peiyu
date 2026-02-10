@@ -166,10 +166,47 @@ function setupEvents() {
     }
 }
 
+let currentPageId = 'bookshelf-page';
+let isSwitchingPage = false;
+
 function switchPage(pageId) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    const page = document.getElementById(pageId);
-    if (page) page.classList.add('active');
+    if (isSwitchingPage || pageId === currentPageId) return;
+    
+    isSwitchingPage = true;
+    
+    // 隐藏当前页面
+    const currentPage = document.getElementById(currentPageId);
+    if (currentPage) {
+        currentPage.style.opacity = '0';
+        currentPage.style.transform = 'translateX(-20px)';
+    }
+    
+    // 延迟切换，等待动画
+    setTimeout(() => {
+        document.querySelectorAll('.page').forEach(p => {
+            p.classList.remove('active');
+            p.style.opacity = '';
+            p.style.transform = '';
+        });
+        
+        const newPage = document.getElementById(pageId);
+        if (newPage) {
+            newPage.classList.add('active');
+            newPage.style.opacity = '0';
+            newPage.style.transform = 'translateX(20px)';
+            
+            // 触发重绘
+            newPage.offsetHeight;
+            
+            // 显示新页面
+            newPage.style.transition = 'all 0.2s ease';
+            newPage.style.opacity = '1';
+            newPage.style.transform = 'translateX(0)';
+        }
+        
+        currentPageId = pageId;
+        isSwitchingPage = false;
+    }, 50);
 }
 
 // 渲染书架 - 列表布局
@@ -451,9 +488,10 @@ function renderSources(page = 0, filter = '') {
                 <div class="settings-label" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceName || '未命名'}</div>
                 <div class="settings-desc" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceUrl}</div>
             </div>
-            <div class="switch ${source.enabled !== false ? 'active' : ''}" 
-                 style="flex-shrink: 0; margin-left: 12px;"
-                 onclick="toggleSource(${realIdx}, event)"></div>
+            <button onclick="deleteSource(${realIdx})" 
+                    style="flex-shrink: 0; margin-left: 12px; padding: 6px 12px; background: #ff5252; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                删除
+            </button>
         </div>
     `}).join('');
     
@@ -594,6 +632,46 @@ async function importFromJson() {
     } catch (e) {
         showToast('JSON格式错误');
     }
+}
+
+// 处理导入文件
+async function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        let imported = 0;
+        if (Array.isArray(data)) {
+            bookEngine.sources.push(...data);
+            imported = data.length;
+        } else {
+            bookEngine.sources.push(data);
+            imported = 1;
+        }
+        
+        await Storage.set('custom_sources', bookEngine.sources);
+        renderSources();
+        hideImportSource();
+        input.value = '';
+        showToast(`成功导入 ${imported} 个书源`);
+    } catch (e) {
+        showToast('文件格式错误: ' + e.message);
+    }
+}
+
+// 删除书源
+async function deleteSource(index) {
+    if (!confirm('确定删除此书源？')) return;
+    
+    const source = bookEngine.sources[index];
+    bookEngine.sources.splice(index, 1);
+    
+    await Storage.set('custom_sources', bookEngine.sources);
+    renderSources();
+    showToast(`已删除: ${source.bookSourceName || '未命名'}`);
 }
 
 // 搜索

@@ -36,8 +36,8 @@ class SimpleBookEngine {
         }
     }
 
-    // 搜索书籍 - 使用所有已启用的书源并行搜索
-    async search(keyword, maxResults = 30) {
+    // 搜索书籍 - 使用所有已启用的书源并行搜索（带超时控制）
+    async search(keyword, maxResults = 20) {
         const results = [];
         const seen = new Set(); // 去重
         
@@ -46,26 +46,31 @@ class SimpleBookEngine {
         console.log(`[搜索] 关键词: ${keyword}, 可用书源: ${enabledSources.length}个`);
         
         // 限制同时搜索的书源数量，避免请求过多
-        const batchSize = 20; // 每批20个书源
-        const batches = Math.ceil(enabledSources.length / batchSize);
+        const batchSize = 10; // 每批10个书源（减少并发）
+        const batches = Math.ceil(Math.min(enabledSources.length, 50) / batchSize); // 最多搜索50个书源
         
         for (let batch = 0; batch < batches; batch++) {
             const start = batch * batchSize;
-            const end = Math.min(start + batchSize, enabledSources.length);
+            const end = Math.min(start + batchSize, enabledSources.length, 50);
             const batchSources = enabledSources.slice(start, end);
             
             console.log(`[搜索] 批次 ${batch + 1}/${batches}, 书源 ${start + 1}-${end}`);
             
-            // 并行搜索当前批次
+            // 并行搜索当前批次（带5秒超时）
             const searchPromises = batchSources.map(async (source, idx) => {
                 try {
-                    const books = await this.searchWithSource(source, keyword);
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('timeout')), 5000)
+                    );
+                    const searchPromise = this.searchWithSource(source, keyword);
+                    const books = await Promise.race([searchPromise, timeoutPromise]);
+                    
                     if (books.length > 0) {
                         console.log(`[搜索] ✓ ${source.bookSourceName}: ${books.length}本`);
                     }
                     return books;
                 } catch (e) {
-                    // 静默失败，不输出错误
+                    // 超时或错误，静默失败
                     return [];
                 }
             });
@@ -89,6 +94,11 @@ class SimpleBookEngine {
             
             // 如果已经找到足够的结果，提前结束
             if (results.length >= maxResults) break;
+            
+            // 批次间添加小延迟，避免请求过快
+            if (batch < batches - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
         }
         
         console.log(`[搜索] 总计找到 ${results.length} 本不重复书籍`);
@@ -283,41 +293,81 @@ class SimpleBookEngine {
             return this.chapterCache.get(cacheKey);
         }
         
-        const source = book.source;
-        const tocUrl = book.tocUrl || book.bookUrl;
-        
-        const html = await this.httpRequest(tocUrl);
-        const rule = source.ruleToc;
-        
-        if (!rule?.chapterList) return [];
-
-        const chapters = [];
-        
-        // 尝试JSON
-        try {
-            const data = JSON.parse(html);
-            const list = this.getValueByPath(data, rule.chapterList);
-            if (Array.isArray(list)) {
-                for (let i = 0; i < list.length; i++) {
-                    const item = list[i];
-                    chapters.push({
-                        index: i,
-                        title: this.getValueByPath(item, rule.chapterName.replace('$.', '')) || `第${i+1}章`,
-                        url: this.fixUrl(
-                            this.getValueByPath(item, rule.chapterUrl.replace('$.', '')) || '',
-                            source.bookSourceUrl
-                        )
-                    });
-                }
-            }
-        } catch (e) {
-            console.log('章节解析失败:', e);
+        const source = book.source || this.getSourceByUrl(book.sourceUrl);
+        if (!source) {
+            console.error('[章节] 未找到书源:', book.sourceUrl);
+            return [];
         }
         
-        // 存入缓存
-        this.setChapterCache(cacheKey, chapters);
+        const tocUrl = book.tocUrl || book.bookUrl;
+        if (!tocUrl) {
+            console.error('[章节] 无目录URL');
+            return [];
+        }
         
-        return chapters;
+        try {
+            const html = await this.httpRequest(tocUrl);
+            if (!html) {
+                console.error('[章节] 请求返回空内容');
+                return [];
+            }
+            
+            const rule = source.ruleToc;
+            if (!rule?.chapterList) {
+                console.log('[章节] 无目录规则，返回模拟章节');
+                // 返回模拟章节
+                return Array.from({length: 100}, (_, i) => ({
+                    index: i,
+                    title: `第${i+1}章`,
+                    url: tocUrl
+                }));
+            }
+
+            const chapters = [];
+            
+            // 尝试JSON
+            try {
+                const data = JSON.parse(html);
+                const list = this.getValueByPath(data, rule.chapterList);
+                if (Array.isArray(list)) {
+                    for (let i = 0; i < list.length; i++) {
+                        const item = list[i];
+                        chapters.push({
+                            index: i,
+                            title: this.getValueByPath(item, rule.chapterName?.replace('$.', '')) || `第${i+1}章`,
+                            url: this.fixUrl(
+                                this.getValueByPath(item, rule.chapterUrl?.replace('$.', '')) || '',
+                                source.bookSourceUrl
+                            )
+                        });
+                    }
+                }
+            } catch (e) {
+                console.log('[章节] JSON解析失败，尝试HTML解析:', e.message);
+                // 尝试HTML解析（简化版）
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const links = doc.querySelectorAll('a');
+                links.forEach((link, i) => {
+                    if (link.textContent && link.href) {
+                        chapters.push({
+                            index: i,
+                            title: link.textContent.trim(),
+                            url: this.fixUrl(link.href, source.bookSourceUrl)
+                        });
+                    }
+                });
+            }
+            
+            // 存入缓存
+            this.setChapterCache(cacheKey, chapters);
+            
+            console.log(`[章节] 获取到 ${chapters.length} 章`);
+            return chapters;
+        } catch (e) {
+            console.error('[章节] 获取失败:', e.message);
+            return [];
+        }
     }
     
     // 设置章节缓存（LRU策略）
