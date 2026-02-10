@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 加载阅读统计
     await loadReadStats();
     
+    // 加载 WebDAV 配置
+    await loadWebDAVConfig();
+    
     bookshelf = await Storage.get('bookshelf') || [];
     renderBookshelf();
     
@@ -51,10 +54,96 @@ let readStartTime = null;
 function startReadTimeTracker() {
     // 每分钟记录一次阅读时间
     setInterval(() => {
-        if (document.getElementById('reader').classList.contains('active')) {
+        const reader = document.getElementById('reader');
+        if (reader && reader.classList.contains('active')) {
             recordReadTime(1);
         }
     }, 60000);
+}
+
+// 图片懒加载
+function setupLazyLoading() {
+    // 使用 Intersection Observer 实现懒加载
+    const imageObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const img = entry.target;
+                const src = img.dataset.src;
+                if (src) {
+                    img.src = src;
+                    img.removeAttribute('data-src');
+                    observer.unobserve(img);
+                }
+            }
+        });
+    }, {
+        rootMargin: '50px 0px',
+        threshold: 0.01
+    });
+    
+    // 观察所有带有 data-src 属性的图片
+    document.querySelectorAll('img[data-src]').forEach(img => {
+        imageObserver.observe(img);
+    });
+    
+    return imageObserver;
+}
+
+// 防抖函数
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// 节流函数
+function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+
+// 虚拟列表渲染（用于长列表）
+function renderVirtualList(container, items, itemHeight, renderItem, visibleCount = 20) {
+    const totalHeight = items.length * itemHeight;
+    container.style.height = totalHeight + 'px';
+    container.style.position = 'relative';
+    
+    let visibleItems = [];
+    
+    function updateVisibleItems() {
+        const scrollTop = container.parentElement.scrollTop;
+        const startIndex = Math.floor(scrollTop / itemHeight);
+        const endIndex = Math.min(startIndex + visibleCount, items.length);
+        
+        // 移除不可见的项目
+        visibleItems.forEach(el => el.remove());
+        visibleItems = [];
+        
+        // 渲染可见项目
+        for (let i = startIndex; i < endIndex; i++) {
+            const el = renderItem(items[i], i);
+            el.style.position = 'absolute';
+            el.style.top = (i * itemHeight) + 'px';
+            el.style.height = itemHeight + 'px';
+            container.appendChild(el);
+            visibleItems.push(el);
+        }
+    }
+    
+    container.parentElement.addEventListener('scroll', throttle(updateVisibleItems, 16));
+    updateVisibleItems();
 }
 
 function setupEvents() {
@@ -84,6 +173,9 @@ function switchPage(pageId) {
 }
 
 // 渲染书架 - 列表布局
+let bookshelfEditMode = false;
+let selectedBooks = new Set();
+
 function renderBookshelf() {
     const list = document.getElementById('bookshelf-list');
     if (!list) return;
@@ -98,8 +190,13 @@ function renderBookshelf() {
         return;
     }
     
-    list.innerHTML = bookshelf.map(book => `
-        <div class="book-list-item" onclick="readBook('${book.id}')">
+    list.innerHTML = bookshelf.map((book, index) => `
+        <div class="book-list-item ${selectedBooks.has(book.id) ? 'selected' : ''}" 
+             data-book-id="${book.id}"
+             data-index="${index}"
+             onclick="handleBookClick('${book.id}', ${index})"
+             oncontextmenu="handleBookLongPress(event, '${book.id}')">
+            ${bookshelfEditMode ? `<div class="book-select-checkbox ${selectedBooks.has(book.id) ? 'checked' : ''}"></div>` : ''}
             <img src="${book.coverUrl || 'https://via.placeholder.com/70x95/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
                  class="book-list-cover" 
                  onerror="this.src='https://via.placeholder.com/70x95/1976d2/ffffff?text=书'">
@@ -110,12 +207,204 @@ function renderBookshelf() {
                 </div>
                 <div class="book-list-chapter">${book.latestChapter || '未读'}</div>
             </div>
+            ${bookshelfEditMode ? '' : `
+            <div class="book-drag-handle" onclick="event.stopPropagation(); showBookOptions('${book.id}')">
+                <span style="color: var(--text-tertiary); font-size: 20px;">⋮</span>
+            </div>
+            `}
         </div>
     `).join('');
+    
+    // 添加编辑模式工具栏
+    updateBookshelfToolbar();
 }
 
-// 渲染书源
-function renderSources() {
+// 处理书籍点击
+function handleBookClick(bookId, index) {
+    if (bookshelfEditMode) {
+        // 编辑模式：切换选择
+        if (selectedBooks.has(bookId)) {
+            selectedBooks.delete(bookId);
+        } else {
+            selectedBooks.add(bookId);
+        }
+        renderBookshelf();
+    } else {
+        // 正常模式：打开阅读
+        readBook(bookId);
+    }
+}
+
+// 处理长按/右键
+function handleBookLongPress(event, bookId) {
+    event.preventDefault();
+    if (!bookshelfEditMode) {
+        showBookOptions(bookId);
+    }
+}
+
+// 显示书籍选项菜单
+function showBookOptions(bookId) {
+    const book = bookshelf.find(b => b.id === bookId);
+    if (!book) return;
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay active';
+    overlay.style.zIndex = '3000';
+    
+    const menu = document.createElement('div');
+    menu.className = 'book-options-menu';
+    menu.style.cssText = `
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--bg-white);
+        border-top-left-radius: 16px;
+        border-top-right-radius: 16px;
+        z-index: 3001;
+        padding: 16px;
+    `;
+    menu.innerHTML = `
+        <div style="text-align: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--divider);">
+            <div style="font-weight: 600; font-size: 16px;">${book.name}</div>
+            <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">${book.author}</div>
+        </div>
+        <div class="book-option-item" onclick="readBook('${bookId}'); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
+            <span>📖</span> <span>阅读</span>
+        </div>
+        <div class="book-option-item" onclick="showBookDetail(${JSON.stringify(book).replace(/'/g, "&#39;")}); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
+            <span>ℹ️</span> <span>书籍详情</span>
+        </div>
+        <div class="book-option-item" onclick="moveBookToTop('${bookId}'); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
+            <span>⬆️</span> <span>置顶</span>
+        </div>
+        <div class="book-option-item" onclick="deleteBook('${bookId}'); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; color: #ff5252; cursor: pointer; display: flex; align-items: center; gap: 12px;">
+            <span>🗑️</span> <span>删除</span>
+        </div>
+        <div class="book-option-item" onclick="this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; text-align: center; color: var(--text-tertiary); cursor: pointer; margin-top: 8px; border-top: 1px solid var(--divider);">
+            取消
+        </div>
+    `;
+    
+    overlay.onclick = () => {
+        overlay.remove();
+        menu.remove();
+    };
+    
+    document.body.appendChild(overlay);
+    document.body.appendChild(menu);
+}
+
+// 置顶书籍
+async function moveBookToTop(bookId) {
+    const index = bookshelf.findIndex(b => b.id === bookId);
+    if (index > 0) {
+        const book = bookshelf.splice(index, 1)[0];
+        bookshelf.unshift(book);
+        await Storage.set('bookshelf', bookshelf);
+        renderBookshelf();
+        showToast('已置顶');
+    }
+}
+
+// 删除书籍
+async function deleteBook(bookId) {
+    if (!confirm('确定从书架删除这本书？')) return;
+    
+    bookshelf = bookshelf.filter(b => b.id !== bookId);
+    await Storage.set('bookshelf', bookshelf);
+    renderBookshelf();
+    showToast('已删除');
+}
+
+// 批量删除
+async function deleteSelectedBooks() {
+    if (selectedBooks.size === 0) {
+        showToast('请先选择书籍');
+        return;
+    }
+    
+    if (!confirm(`确定删除选中的 ${selectedBooks.size} 本书？`)) return;
+    
+    bookshelf = bookshelf.filter(b => !selectedBooks.has(b.id));
+    selectedBooks.clear();
+    await Storage.set('bookshelf', bookshelf);
+    exitBookshelfEditMode();
+    renderBookshelf();
+    showToast('已删除');
+}
+
+// 进入编辑模式
+function enterBookshelfEditMode() {
+    bookshelfEditMode = true;
+    selectedBooks.clear();
+    renderBookshelf();
+}
+
+// 退出编辑模式
+function exitBookshelfEditMode() {
+    bookshelfEditMode = false;
+    selectedBooks.clear();
+    renderBookshelf();
+}
+
+// 更新书架工具栏
+function updateBookshelfToolbar() {
+    let toolbar = document.getElementById('bookshelf-toolbar');
+    
+    if (bookshelfEditMode) {
+        if (!toolbar) {
+            toolbar = document.createElement('div');
+            toolbar.id = 'bookshelf-toolbar';
+            toolbar.style.cssText = `
+                position: fixed;
+                bottom: 60px;
+                left: 0;
+                right: 0;
+                background: var(--bg-white);
+                border-top: 1px solid var(--divider);
+                padding: 12px 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                z-index: 999;
+            `;
+            document.body.appendChild(toolbar);
+        }
+        
+        toolbar.innerHTML = `
+            <span style="color: var(--text-secondary); font-size: 14px;">已选择 ${selectedBooks.size} 本</span>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="selectAllBooks()" style="padding: 8px 16px; border: none; background: var(--bg-gray); border-radius: 4px; cursor: pointer;">全选</button>
+                <button onclick="deleteSelectedBooks()" style="padding: 8px 16px; border: none; background: #ff5252; color: white; border-radius: 4px; cursor: pointer;">删除</button>
+                <button onclick="exitBookshelfEditMode()" style="padding: 8px 16px; border: none; background: var(--primary); color: white; border-radius: 4px; cursor: pointer;">完成</button>
+            </div>
+        `;
+        toolbar.style.display = 'flex';
+    } else {
+        if (toolbar) {
+            toolbar.style.display = 'none';
+        }
+    }
+}
+
+// 全选书籍
+function selectAllBooks() {
+    if (selectedBooks.size === bookshelf.length) {
+        selectedBooks.clear();
+    } else {
+        selectedBooks = new Set(bookshelf.map(b => b.id));
+    }
+    renderBookshelf();
+}
+
+// 渲染书源 - 支持分页显示全部书源
+let sourcePageSize = 50;
+let sourceCurrentPage = 0;
+let filteredSources = [];
+
+function renderSources(page = 0, filter = '') {
     const list = document.getElementById('source-list');
     if (!list) return;
     
@@ -139,16 +428,71 @@ function renderSources() {
         return;
     }
     
-    list.innerHTML = bookEngine.sources.map((source, idx) => `
-        <div class="settings-item">
-            <div class="settings-content" style="flex: 1;">
-                <div class="settings-label">${source.bookSourceName || '未命名'}</div>
-                <div class="settings-desc">${source.bookSourceUrl}</div>
+    // 过滤书源
+    if (filter) {
+        filteredSources = bookEngine.sources.filter(s => 
+            (s.bookSourceName || '').toLowerCase().includes(filter.toLowerCase()) ||
+            (s.bookSourceUrl || '').toLowerCase().includes(filter.toLowerCase())
+        );
+    } else {
+        filteredSources = bookEngine.sources;
+    }
+    
+    sourceCurrentPage = page;
+    const start = page * sourcePageSize;
+    const end = start + sourcePageSize;
+    const pageSources = filteredSources.slice(start, end);
+    
+    const html = pageSources.map((source, idx) => {
+        const realIdx = bookEngine.sources.indexOf(source);
+        return `
+        <div class="settings-item" style="padding: 12px 16px;">
+            <div class="settings-content" style="flex: 1; min-width: 0;">
+                <div class="settings-label" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceName || '未命名'}</div>
+                <div class="settings-desc" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceUrl}</div>
             </div>
             <div class="switch ${source.enabled !== false ? 'active' : ''}" 
-                 onclick="toggleSource(${idx}, event)"></div>
+                 style="flex-shrink: 0; margin-left: 12px;"
+                 onclick="toggleSource(${realIdx}, event)"></div>
         </div>
-    `).join('');
+    `}).join('');
+    
+    // 添加加载更多按钮
+    const loadMoreHtml = end < filteredSources.length ? `
+        <div class="settings-item" onclick="loadMoreSources()" style="justify-content: center; color: var(--primary); cursor: pointer;">
+            <span>加载更多 (${filteredSources.length - end} 个)</span>
+        </div>
+    ` : '';
+    
+    if (page === 0) {
+        // 添加搜索框
+        const searchHtml = `
+            <div style="padding: 12px 16px; background: var(--bg-white); border-bottom: 1px solid var(--divider);">
+                <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-gray); border-radius: 20px; padding: 8px 12px;">
+                    <span>🔍</span>
+                    <input type="text" id="source-search-input" placeholder="搜索书源..." 
+                           style="flex: 1; border: none; background: transparent; font-size: 14px; outline: none;"
+                           oninput="searchSources(this.value)">
+                </div>
+            </div>
+        `;
+        list.innerHTML = searchHtml + html + loadMoreHtml;
+    } else {
+        // 移除旧的加载更多按钮，添加新内容
+        const oldLoadMore = list.querySelector('.settings-item:last-child');
+        if (oldLoadMore && oldLoadMore.onclick && oldLoadMore.onclick.toString().includes('loadMoreSources')) {
+            oldLoadMore.remove();
+        }
+        list.insertAdjacentHTML('beforeend', html + loadMoreHtml);
+    }
+}
+
+function loadMoreSources() {
+    renderSources(sourceCurrentPage + 1, document.getElementById('source-search-input')?.value || '');
+}
+
+function searchSources(keyword) {
+    renderSources(0, keyword);
 }
 
 // 切换书源启用状态
@@ -253,6 +597,9 @@ async function importFromJson() {
 }
 
 // 搜索
+let lastSearchResults = [];
+let lastSearchKeyword = '';
+
 async function doSearch() {
     const input = document.getElementById('search-input');
     const keyword = input?.value?.trim();
@@ -262,13 +609,22 @@ async function doSearch() {
         return;
     }
     
+    lastSearchKeyword = keyword;
     const grid = document.getElementById('discover-grid');
     if (!grid) return;
     
-    grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><div class="loading-spinner"></div><p>搜索中...</p></div>';
+    // 显示搜索中状态
+    grid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1/-1;">
+            <div class="loading-spinner"></div>
+            <p>正在搜索 ${keyword}...</p>
+            <p style="font-size: 12px; color: var(--text-tertiary); margin-top: 8px;">正在查询多个书源</p>
+        </div>
+    `;
     
     try {
         const results = await bookEngine.search(keyword);
+        lastSearchResults = results;
         
         if (results.length === 0) {
             grid.innerHTML = `
@@ -280,16 +636,7 @@ async function doSearch() {
             return;
         }
         
-        grid.innerHTML = results.map(book => `
-            <div class="book-grid-item" onclick='showBookDetail(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
-                <img src="${book.coverUrl || 'https://via.placeholder.com/100x133/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
-                     class="book-grid-cover"
-                     onerror="this.src='https://via.placeholder.com/100x133/1976d2/ffffff?text=书'">
-                <div class="book-grid-title">${book.name || '未知书名'}</div>
-                <div class="book-grid-author">${book.author || '未知作者'}</div>
-            </div>
-        `).join('');
-        
+        renderSearchResults(results);
         showToast(`找到 ${results.length} 本书`);
     } catch (e) {
         console.error('搜索失败:', e);
@@ -302,12 +649,204 @@ async function doSearch() {
     }
 }
 
+// 渲染搜索结果
+function renderSearchResults(results, filterSource = '') {
+    const grid = document.getElementById('discover-grid');
+    if (!grid) return;
+    
+    // 过滤结果
+    let filteredResults = results;
+    if (filterSource) {
+        filteredResults = results.filter(book => book.sourceName === filterSource);
+    }
+    
+    // 获取所有书源列表用于过滤
+    const sourceMap = new Map();
+    results.forEach(book => {
+        if (book.sourceName) {
+            sourceMap.set(book.sourceName, (sourceMap.get(book.sourceName) || 0) + 1);
+        }
+    });
+    
+    // 构建过滤栏HTML
+    let filterHtml = '';
+    if (sourceMap.size > 0) {
+        const sources = Array.from(sourceMap.entries()).sort((a, b) => b[1] - a[1]);
+        filterHtml = `
+            <div style="grid-column: 1/-1; margin-bottom: 12px;">
+                <div style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; -webkit-overflow-scrolling: touch;">
+                    <div class="source-filter-chip ${!filterSource ? 'active' : ''}" 
+                         onclick="renderSearchResults(lastSearchResults, '')"
+                         style="flex-shrink: 0; padding: 6px 12px; background: ${!filterSource ? 'var(--primary)' : 'var(--bg-gray)'}; 
+                                color: ${!filterSource ? 'white' : 'var(--text-secondary)'}; border-radius: 16px; font-size: 12px; cursor: pointer;">
+                        全部 (${results.length})
+                    </div>
+                    ${sources.map(([source, count]) => `
+                        <div class="source-filter-chip ${filterSource === source ? 'active' : ''}" 
+                             onclick="renderSearchResults(lastSearchResults, '${source.replace(/'/g, "\\'")}')"
+                             style="flex-shrink: 0; padding: 6px 12px; background: ${filterSource === source ? 'var(--primary)' : 'var(--bg-gray)'}; 
+                                    color: ${filterSource === source ? 'white' : 'var(--text-secondary)'}; border-radius: 16px; font-size: 12px; cursor: pointer;
+                                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+                            ${source} (${count})
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    if (filteredResults.length === 0) {
+        grid.innerHTML = filterHtml + `
+            <div class="empty-state" style="grid-column: 1/-1;">
+                <p>该书源暂无结果</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const resultsHtml = filteredResults.map(book => `
+        <div class="book-grid-item" onclick='showBookDetail(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
+            <img src="${book.coverUrl || 'https://via.placeholder.com/100x133/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
+                 class="book-grid-cover"
+                 onerror="this.src='https://via.placeholder.com/100x133/1976d2/ffffff?text=书'">
+            <div class="book-grid-title">${book.name || '未知书名'}</div>
+            <div class="book-grid-author">${book.author || '未知作者'}</div>
+            <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${book.sourceName || ''}</div>
+        </div>
+    `).join('');
+    
+    grid.innerHTML = filterHtml + resultsHtml;
+}
+
 // 分类搜索
 function searchCategory(category) {
     const input = document.getElementById('search-input');
     if (input) input.value = category;
     doSearch();
 }
+
+// 排行榜功能
+let currentRanking = 'hot';
+let rankingData = {
+    hot: [],
+    new: [],
+    finish: [],
+    update: []
+};
+
+// 切换排行榜
+async function switchRanking(type) {
+    currentRanking = type;
+    
+    // 更新标签样式
+    document.querySelectorAll('.ranking-tab').forEach(tab => {
+        if (tab.dataset.rank === type) {
+            tab.classList.add('active');
+            tab.style.background = 'var(--primary)';
+            tab.style.color = 'white';
+        } else {
+            tab.classList.remove('active');
+            tab.style.background = 'var(--bg-gray)';
+            tab.style.color = 'var(--text-secondary)';
+        }
+    });
+    
+    // 显示加载中
+    const list = document.getElementById('ranking-list');
+    if (list) {
+        list.innerHTML = `
+            <div class="empty-state" style="padding: 20px;">
+                <div class="loading-spinner"></div>
+                <p>加载中...</p>
+            </div>
+        `;
+    }
+    
+    // 加载排行榜数据
+    await loadRanking(type);
+}
+
+// 加载排行榜数据
+async function loadRanking(type) {
+    // 如果已有缓存数据，直接显示
+    if (rankingData[type] && rankingData[type].length > 0) {
+        renderRankingList(rankingData[type]);
+        return;
+    }
+    
+    // 使用搜索模拟排行榜
+    const keywords = {
+        hot: ['热门', '畅销', '经典'],
+        new: ['新书', '最新'],
+        finish: ['完结', '全本'],
+        update: ['更新', '连载']
+    };
+    
+    const searchKeyword = keywords[type][0];
+    
+    try {
+        const results = await bookEngine.search(searchKeyword, 10);
+        rankingData[type] = results;
+        renderRankingList(results);
+    } catch (e) {
+        const list = document.getElementById('ranking-list');
+        if (list) {
+            list.innerHTML = `
+                <div class="empty-state" style="padding: 20px;">
+                    <p>加载失败</p>
+                </div>
+            `;
+        }
+    }
+}
+
+// 渲染排行榜列表
+function renderRankingList(books) {
+    const list = document.getElementById('ranking-list');
+    if (!list) return;
+    
+    if (books.length === 0) {
+        list.innerHTML = `
+            <div class="empty-state" style="padding: 20px;">
+                <p>暂无数据</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const rankColors = ['#ff5252', '#ff9800', '#ffc107', '#8bc34a', '#4caf50'];
+    
+    list.innerHTML = books.slice(0, 10).map((book, idx) => `
+        <div class="ranking-item" onclick='showBookDetail(${JSON.stringify(book).replace(/'/g, "&#39;")})' 
+             style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--divider); cursor: pointer;">
+            <div class="ranking-number" style="
+                width: 24px; height: 24px; 
+                background: ${idx < 3 ? rankColors[idx] : 'var(--bg-gray)'}; 
+                color: ${idx < 3 ? 'white' : 'var(--text-secondary)'};
+                border-radius: 4px; 
+                display: flex; align-items: center; justify-content: center;
+                font-size: 12px; font-weight: 600; margin-right: 12px;
+            ">${idx + 1}</div>
+            <img src="${book.coverUrl || 'https://via.placeholder.com/50x67/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
+                 style="width: 40px; height: 53px; object-fit: cover; border-radius: 4px; margin-right: 12px;"
+                 onerror="this.src='https://via.placeholder.com/50x67/1976d2/ffffff?text=书'">
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${book.name || '未知书名'}</div>
+                <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 2px;">${book.author || '未知作者'}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 页面加载完成后初始化排行榜
+document.addEventListener('DOMContentLoaded', () => {
+    // 延迟加载排行榜
+    setTimeout(() => {
+        if (document.getElementById('ranking-list')) {
+            switchRanking('hot');
+        }
+    }, 1000);
+});
 
 // 添加书籍
 async function addBook(book) {
@@ -398,17 +937,19 @@ function showThemeSettings() {
 
 function applyTheme(theme) {
     const root = document.documentElement;
+    const isDark = theme === '深色' || (theme === '跟随系统' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     
-    if (theme === '深色' || (theme === '跟随系统' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    if (isDark) {
         // 深色主题
-        root.style.setProperty('--bg-white', '#1a1a1a');
+        root.style.setProperty('--bg-white', '#1e1e1e');
         root.style.setProperty('--bg-gray', '#121212');
-        root.style.setProperty('--text-primary', '#ffffff');
-        root.style.setProperty('--text-secondary', '#b0b0b0');
-        root.style.setProperty('--text-tertiary', '#808080');
+        root.style.setProperty('--text-primary', '#e0e0e0');
+        root.style.setProperty('--text-secondary', '#a0a0a0');
+        root.style.setProperty('--text-tertiary', '#707070');
         root.style.setProperty('--border', '#333333');
         root.style.setProperty('--divider', '#2a2a2a');
         document.body.style.background = '#121212';
+        document.body.classList.add('dark-theme');
     } else {
         // 浅色主题
         root.style.setProperty('--bg-white', '#ffffff');
@@ -419,7 +960,13 @@ function applyTheme(theme) {
         root.style.setProperty('--border', '#e0e0e0');
         root.style.setProperty('--divider', '#eeeeee');
         document.body.style.background = '#f5f5f5';
+        document.body.classList.remove('dark-theme');
     }
+    
+    // 应用到所有页面
+    document.querySelectorAll('.page').forEach(page => {
+        page.style.background = isDark ? '#121212' : '#f5f5f5';
+    });
 }
 
 // 加载保存的主题
@@ -441,12 +988,458 @@ function showDictRule() {
     showToast('字典管理功能开发中');
 }
 
-function showBackupRestore() {
-    showToast('备份与恢复功能开发中');
+// WebDAV 备份与恢复
+let webdavConfig = {
+    url: '',
+    username: '',
+    password: '',
+    enabled: false
+};
+
+// 加载 WebDAV 配置
+async function loadWebDAVConfig() {
+    const saved = await Storage.get('webdav_config');
+    if (saved) {
+        webdavConfig = { ...webdavConfig, ...saved };
+    }
 }
 
-function showCacheManage() {
-    showToast('缓存管理功能开发中');
+// 保存 WebDAV 配置
+async function saveWebDAVConfig(config) {
+    webdavConfig = { ...webdavConfig, ...config };
+    await Storage.set('webdav_config', webdavConfig);
+}
+
+function showBackupRestore() {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay active';
+    overlay.style.zIndex = '3000';
+    
+    const panel = document.createElement('div');
+    panel.className = 'import-panel active';
+    panel.style.zIndex = '3001';
+    panel.style.maxHeight = '80vh';
+    panel.innerHTML = `
+        <div class="import-header">
+            <span class="header-title">备份与恢复</span>
+            <span class="header-icon" onclick="this.closest('.import-panel').remove(); document.querySelector('.overlay').remove()">✕</span>
+        </div>
+        <div class="import-content">
+            <!-- WebDAV 配置 -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">WebDAV 配置</div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="webdav-url" placeholder="WebDAV 服务器地址" 
+                           value="${webdavConfig.url || ''}"
+                           style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;">
+                    <input type="text" id="webdav-username" placeholder="用户名" 
+                           value="${webdavConfig.username || ''}"
+                           style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;">
+                    <input type="password" id="webdav-password" placeholder="密码" 
+                           value="${webdavConfig.password || ''}"
+                           style="padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;">
+                    <button onclick="testWebDAVConnection()" style="padding: 10px; background: var(--bg-gray); border: none; border-radius: 6px; cursor: pointer;">测试连接</button>
+                    <button onclick="saveWebDAVSettings()" style="padding: 10px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">保存配置</button>
+                </div>
+            </div>
+            
+            <!-- 备份操作 -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">备份操作</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button onclick="backupToWebDAV()" style="padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">📤 备份到 WebDAV</button>
+                    <button onclick="restoreFromWebDAV()" style="padding: 12px; background: var(--bg-gray); border: none; border-radius: 6px; cursor: pointer;">📥 从 WebDAV 恢复</button>
+                </div>
+            </div>
+            
+            <!-- 本地备份 -->
+            <div>
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">本地备份</div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button onclick="exportLocalBackup()" style="padding: 12px; background: var(--bg-gray); border: none; border-radius: 6px; cursor: pointer;">📦 导出备份</button>
+                    <button onclick="importLocalBackup()" style="padding: 12px; background: var(--bg-gray); border: none; border-radius: 6px; cursor: pointer;">📂 导入备份</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    overlay.onclick = () => {
+        overlay.remove();
+        panel.remove();
+    };
+    
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+}
+
+// 测试 WebDAV 连接
+async function testWebDAVConnection() {
+    const url = document.getElementById('webdav-url').value.trim();
+    const username = document.getElementById('webdav-username').value.trim();
+    const password = document.getElementById('webdav-password').value;
+    
+    if (!url) {
+        showToast('请输入 WebDAV 地址');
+        return;
+    }
+    
+    showToast('正在测试连接...');
+    
+    try {
+        // 尝试访问 WebDAV 根目录
+        const response = await fetch(url, {
+            method: 'PROPFIND',
+            headers: {
+                'Authorization': 'Basic ' + btoa(username + ':' + password),
+                'Content-Type': 'text/xml'
+            },
+            body: `<?xml version="1.0" encoding="utf-8"?>
+                   <propfind xmlns="DAV:">
+                       <prop>
+                           <resourcetype/>
+                       </prop>
+                   </propfind>`
+        });
+        
+        if (response.status === 207) {
+            showToast('✅ 连接成功');
+        } else {
+            showToast('❌ 连接失败: ' + response.status);
+        }
+    } catch (e) {
+        showToast('❌ 连接失败: ' + e.message);
+    }
+}
+
+// 保存 WebDAV 设置
+async function saveWebDAVSettings() {
+    const url = document.getElementById('webdav-url').value.trim();
+    const username = document.getElementById('webdav-username').value.trim();
+    const password = document.getElementById('webdav-password').value;
+    
+    await saveWebDAVConfig({ url, username, password });
+    showToast('配置已保存');
+}
+
+// 备份到 WebDAV
+async function backupToWebDAV() {
+    if (!webdavConfig.url) {
+        showToast('请先配置 WebDAV');
+        return;
+    }
+    
+    showToast('正在备份...');
+    
+    try {
+        // 准备备份数据
+        const backupData = {
+            version: '2.0.5',
+            timestamp: new Date().toISOString(),
+            bookshelf: bookshelf,
+            readStats: readStats,
+            bookSources: bookEngine.sources.filter(s => s.enabled !== false)
+        };
+        
+        const backupJson = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([backupJson], { type: 'application/json' });
+        
+        // 上传到 WebDAV
+        const filename = `peiyu_backup_${new Date().toISOString().split('T')[0]}.json`;
+        const uploadUrl = webdavConfig.url.replace(/\/$/, '') + '/' + filename;
+        
+        const response = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Basic ' + btoa(webdavConfig.username + ':' + webdavConfig.password),
+                'Content-Type': 'application/json'
+            },
+            body: blob
+        });
+        
+        if (response.ok) {
+            showToast('✅ 备份成功: ' + filename);
+        } else {
+            showToast('❌ 备份失败: ' + response.status);
+        }
+    } catch (e) {
+        showToast('❌ 备份失败: ' + e.message);
+    }
+}
+
+// 从 WebDAV 恢复
+async function restoreFromWebDAV() {
+    if (!webdavConfig.url) {
+        showToast('请先配置 WebDAV');
+        return;
+    }
+    
+    if (!confirm('恢复将覆盖当前数据，确定继续？')) return;
+    
+    showToast('正在获取备份列表...');
+    
+    try {
+        // 列出 WebDAV 文件
+        const response = await fetch(webdavConfig.url, {
+            method: 'PROPFIND',
+            headers: {
+                'Authorization': 'Basic ' + btoa(webdavConfig.username + ':' + webdavConfig.password),
+                'Content-Type': 'text/xml',
+                'Depth': '1'
+            },
+            body: `<?xml version="1.0" encoding="utf-8"?>
+                   <propfind xmlns="DAV:">
+                       <prop>
+                           <displayname/>
+                           <getlastmodified/>
+                       </prop>
+                   </propfind>`
+        });
+        
+        if (!response.ok) {
+            showToast('❌ 获取备份列表失败');
+            return;
+        }
+        
+        // 这里简化处理，直接恢复最新的备份
+        // 实际应该让用户选择备份文件
+        showToast('请使用本地导入功能恢复备份文件');
+    } catch (e) {
+        showToast('❌ 恢复失败: ' + e.message);
+    }
+}
+
+// 导出本地备份
+async function exportLocalBackup() {
+    const backupData = {
+        version: '2.0.5',
+        timestamp: new Date().toISOString(),
+        bookshelf: bookshelf,
+        readStats: readStats,
+        bookSources: bookEngine.sources.filter(s => s.enabled !== false)
+    };
+    
+    const backupJson = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([backupJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // 创建下载链接
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `peiyu_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('✅ 备份已导出');
+}
+
+// 导入本地备份
+async function importLocalBackup() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            const text = await file.text();
+            const backupData = JSON.parse(text);
+            
+            if (!confirm('恢复备份将覆盖当前数据，确定继续？')) return;
+            
+            // 恢复数据
+            if (backupData.bookshelf) {
+                bookshelf = backupData.bookshelf;
+                await Storage.set('bookshelf', bookshelf);
+                renderBookshelf();
+            }
+            
+            if (backupData.readStats) {
+                readStats = backupData.readStats;
+                await Storage.set('read_stats', readStats);
+            }
+            
+            if (backupData.bookSources) {
+                const customSources = backupData.bookSources;
+                await Storage.set('custom_sources', customSources);
+                // 重新加载书源
+                await bookEngine.init();
+                renderSources();
+            }
+            
+            showToast('✅ 恢复成功');
+        } catch (e) {
+            showToast('❌ 恢复失败: ' + e.message);
+        }
+    };
+    
+    input.click();
+}
+
+// 缓存管理
+let cacheStats = {
+    bookCache: 0,      // 书籍缓存大小
+    chapterCache: 0,   // 章节缓存大小
+    imageCache: 0,     // 图片缓存大小
+    totalCache: 0      // 总缓存大小
+};
+
+async function calculateCacheSize() {
+    let totalSize = 0;
+    let bookSize = 0;
+    let chapterSize = 0;
+    
+    // 计算书架缓存
+    for (const book of bookshelf) {
+        if (book.chapters) {
+            bookSize += JSON.stringify(book).length;
+            for (const ch of book.chapters) {
+                if (ch.content) {
+                    chapterSize += ch.content.length * 2; // UTF-16 编码
+                }
+            }
+        }
+    }
+    
+    cacheStats.bookCache = bookSize;
+    cacheStats.chapterCache = chapterSize;
+    cacheStats.totalCache = bookSize + chapterSize;
+    
+    return cacheStats;
+}
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    return (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+}
+
+async function showCacheManage() {
+    await calculateCacheSize();
+    
+    // 创建缓存管理弹窗
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay active';
+    overlay.style.zIndex = '3000';
+    overlay.onclick = () => {
+        overlay.remove();
+        panel.remove();
+    };
+    
+    const panel = document.createElement('div');
+    panel.className = 'import-panel active';
+    panel.style.zIndex = '3001';
+    panel.style.maxHeight = '70vh';
+    panel.innerHTML = `
+        <div class="import-header">
+            <span class="header-title">缓存管理</span>
+            <span class="header-icon" onclick="this.closest('.import-panel').remove(); document.querySelector('.overlay').remove()">✕</span>
+        </div>
+        <div class="import-content">
+            <div style="margin-bottom: 20px;">
+                <div style="text-align: center; padding: 20px; background: var(--bg-gray); border-radius: 8px; margin-bottom: 16px;">
+                    <div style="font-size: 32px; font-weight: 600; color: var(--primary);">${formatSize(cacheStats.totalCache)}</div>
+                    <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">总缓存大小</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                    <div style="text-align: center; padding: 12px; background: var(--bg-gray); border-radius: 8px;">
+                        <div style="font-size: 16px; font-weight: 600; color: #4caf50;">${formatSize(cacheStats.bookCache)}</div>
+                        <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 4px;">书籍数据</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: var(--bg-gray); border-radius: 8px;">
+                        <div style="font-size: 16px; font-weight: 600; color: #ff9800;">${formatSize(cacheStats.chapterCache)}</div>
+                        <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 4px;">章节内容</div>
+                    </div>
+                    <div style="text-align: center; padding: 12px; background: var(--bg-gray); border-radius: 8px;">
+                        <div style="font-size: 16px; font-weight: 600; color: #9c27b0;">${bookshelf.length}</div>
+                        <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 4px;">缓存书籍</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">清理选项</div>
+                
+                <div class="settings-item" onclick="clearChapterCache()" style="cursor: pointer; margin-bottom: 8px; border-radius: 8px; background: var(--bg-gray);">
+                    <div class="settings-content">
+                        <div class="settings-label">清理章节内容</div>
+                        <div class="settings-desc">保留书籍信息，仅删除已下载的章节内容</div>
+                    </div>
+                    <span class="settings-arrow">›</span>
+                </div>
+                
+                <div class="settings-item" onclick="clearAllCache()" style="cursor: pointer; margin-bottom: 8px; border-radius: 8px; background: var(--bg-gray);">
+                    <div class="settings-content">
+                        <div class="settings-label">清理全部缓存</div>
+                        <div class="settings-desc">删除所有缓存数据，包括书籍信息和章节内容</div>
+                    </div>
+                    <span class="settings-arrow">›</span>
+                </div>
+                
+                <div class="settings-item" onclick="clearReadRecord()" style="cursor: pointer; border-radius: 8px; background: var(--bg-gray);">
+                    <div class="settings-content">
+                        <div class="settings-label">清理阅读记录</div>
+                        <div class="settings-desc">删除阅读时长统计和阅读历史</div>
+                    </div>
+                    <span class="settings-arrow">›</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+}
+
+async function clearChapterCache() {
+    if (!confirm('确定清理所有章节内容缓存？')) return;
+    
+    let clearedCount = 0;
+    for (const book of bookshelf) {
+        if (book.chapters) {
+            for (const ch of book.chapters) {
+                if (ch.content) {
+                    ch.content = null;
+                    clearedCount++;
+                }
+            }
+        }
+    }
+    
+    await Storage.set('bookshelf', bookshelf);
+    await calculateCacheSize();
+    showToast(`已清理 ${clearedCount} 个章节的缓存`);
+}
+
+async function clearAllCache() {
+    if (!confirm('确定清理全部缓存？这将删除所有书籍数据和章节内容！')) return;
+    
+    // 清空书架
+    bookshelf = [];
+    await Storage.set('bookshelf', bookshelf);
+    renderBookshelf();
+    
+    showToast('全部缓存已清理');
+}
+
+async function clearReadRecord() {
+    if (!confirm('确定清理阅读记录？')) return;
+    
+    readStats = {
+        totalTime: 0,
+        todayTime: 0,
+        bookCount: 0,
+        chapterCount: 0,
+        dailyStats: {}
+    };
+    
+    await Storage.set('read_stats', readStats);
+    showToast('阅读记录已清理');
 }
 
 function showWebService() {

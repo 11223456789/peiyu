@@ -31,6 +31,15 @@ class BookReader {
         
         // 页面内容缓存
         this.pages = [];
+        
+        // TTS (语音合成)
+        this.tts = {
+            speaking: false,
+            paused: false,
+            currentUtterance: null,
+            rate: 1.0,
+            queue: []
+        };
     }
     
     // 初始化阅读器
@@ -83,11 +92,42 @@ class BookReader {
                     </div>
                     
                     <div class="menu-section">
-                        <h4>字体大小</h4>
+                        <h4>听书模式</h4>
+                        <div class="tts-control">
+                            <button id="tts-play" class="tts-btn">▶️ 开始朗读</button>
+                            <button id="tts-pause" class="tts-btn" style="display: none;">⏸️ 暂停</button>
+                            <button id="tts-stop" class="tts-btn">⏹️ 停止</button>
+                        </div>
+                        <div class="tts-speed">
+                            <span>语速:</span>
+                            <input type="range" id="tts-rate" min="0.5" max="2" step="0.1" value="1">
+                            <span id="tts-rate-value">1.0x</span>
+                        </div>
+                    </div>
+                    
+                    <div class="menu-section">
+                        <h4>字体设置</h4>
                         <div class="font-control">
                             <button id="font-decrease">A-</button>
                             <span id="font-size-display">18</span>
                             <button id="font-increase">A+</button>
+                        </div>
+                        <div class="font-family-control" style="margin-top: 12px;">
+                            <span>字体:</span>
+                            <select id="font-family" style="margin-left: 8px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);">
+                                <option value="system">系统默认</option>
+                                <option value="serif">宋体</option>
+                                <option value="sans-serif">黑体</option>
+                                <option value="monospace">等宽</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="menu-section">
+                        <h4>行间距</h4>
+                        <div class="line-height-control">
+                            <input type="range" id="line-height" min="1.2" max="2.5" step="0.1" value="1.8">
+                            <span id="line-height-value">1.8</span>
                         </div>
                     </div>
                     
@@ -98,6 +138,8 @@ class BookReader {
                             <div class="bg-option" data-bg="light" style="background: #f5f5f5;"></div>
                             <div class="bg-option" data-bg="sepia" style="background: #f4ecd8;"></div>
                             <div class="bg-option" data-bg="green" style="background: #c7edcc;"></div>
+                            <div class="bg-option" data-bg="blue" style="background: #e3f2fd;"></div>
+                            <div class="bg-option" data-bg="pink" style="background: #fce4ec;"></div>
                         </div>
                     </div>
                     
@@ -117,6 +159,27 @@ class BookReader {
                             <input type="checkbox" id="volume-key-toggle" checked>
                             <span class="toggle-switch"></span>
                         </label>
+                    </div>
+                    
+                    <div class="menu-section">
+                        <label class="toggle-label">
+                            <span>屏幕常亮</span>
+                            <input type="checkbox" id="keep-screen-on" checked>
+                            <span class="toggle-switch"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="menu-section">
+                        <label class="toggle-label">
+                            <span>自动翻页</span>
+                            <input type="checkbox" id="auto-flip">
+                            <span class="toggle-switch"></span>
+                        </label>
+                        <div class="auto-flip-speed" style="margin-top: 8px; display: none;">
+                            <span>间隔:</span>
+                            <input type="range" id="auto-flip-interval" min="3" max="30" step="1" value="10">
+                            <span id="auto-flip-value">10秒</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -192,6 +255,209 @@ class BookReader {
             this.settings.useVolumeKey = e.target.checked;
             this.saveSettings();
         });
+        
+        // 屏幕常亮
+        document.getElementById('keep-screen-on')?.addEventListener('change', (e) => {
+            this.settings.keepScreenOn = e.target.checked;
+            this.saveSettings();
+            this.applyKeepScreenOn();
+        });
+        
+        // 自动翻页
+        document.getElementById('auto-flip')?.addEventListener('change', (e) => {
+            this.settings.autoFlip = e.target.checked;
+            this.saveSettings();
+            const speedControl = document.querySelector('.auto-flip-speed');
+            if (speedControl) {
+                speedControl.style.display = e.target.checked ? 'block' : 'none';
+            }
+            this.applyAutoFlip();
+        });
+        
+        document.getElementById('auto-flip-interval')?.addEventListener('input', (e) => {
+            this.settings.autoFlipInterval = parseInt(e.target.value);
+            document.getElementById('auto-flip-value').textContent = e.target.value + '秒';
+            this.saveSettings();
+            this.applyAutoFlip();
+        });
+        
+        // 字体选择
+        document.getElementById('font-family')?.addEventListener('change', (e) => {
+            this.settings.fontFamily = e.target.value;
+            this.saveSettings();
+            this.applyFontFamily();
+        });
+        
+        // 行间距
+        document.getElementById('line-height')?.addEventListener('input', (e) => {
+            this.settings.lineHeight = parseFloat(e.target.value);
+            document.getElementById('line-height-value').textContent = e.target.value;
+            this.saveSettings();
+            this.applyLineHeight();
+        });
+        
+        // TTS 控制
+        document.getElementById('tts-play')?.addEventListener('click', () => this.startTTS());
+        document.getElementById('tts-pause')?.addEventListener('click', () => this.pauseTTS());
+        document.getElementById('tts-stop')?.addEventListener('click', () => this.stopTTS());
+        document.getElementById('tts-rate')?.addEventListener('input', (e) => {
+            this.tts.rate = parseFloat(e.target.value);
+            document.getElementById('tts-rate-value').textContent = this.tts.rate.toFixed(1) + 'x';
+        });
+    }
+    
+    // 应用字体
+    applyFontFamily() {
+        const fontMap = {
+            'system': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            'serif': '"Noto Serif SC", "Source Han Serif SC", "SimSun", serif',
+            'sans-serif': '"Noto Sans SC", "Source Han Sans SC", "SimHei", sans-serif',
+            'monospace': '"Fira Code", "Source Code Pro", monospace'
+        };
+        
+        if (this.content) {
+            this.content.style.fontFamily = fontMap[this.settings.fontFamily] || fontMap['system'];
+        }
+    }
+    
+    // 应用行间距
+    applyLineHeight() {
+        if (this.content) {
+            this.content.style.lineHeight = this.settings.lineHeight;
+        }
+    }
+    
+    // 应用屏幕常亮
+    applyKeepScreenOn() {
+        if (this.settings.keepScreenOn) {
+            // 使用 Capacitor 插件保持屏幕常亮
+            if (window.Capacitor && Capacitor.Plugins.KeepAwake) {
+                Capacitor.Plugins.KeepAwake.keepAwake();
+            } else {
+                // 备用方案：使用 NoSleep.js 或屏幕锁定API
+                if ('wakeLock' in navigator) {
+                    navigator.wakeLock.request('screen').catch(err => {
+                        console.log('屏幕常亮请求失败:', err);
+                    });
+                }
+            }
+        } else {
+            if (window.Capacitor && Capacitor.Plugins.KeepAwake) {
+                Capacitor.Plugins.KeepAwake.allowSleep();
+            }
+        }
+    }
+    
+    // 应用自动翻页
+    applyAutoFlip() {
+        if (this.autoFlipTimer) {
+            clearInterval(this.autoFlipTimer);
+            this.autoFlipTimer = null;
+        }
+        
+        if (this.settings.autoFlip) {
+            const interval = (this.settings.autoFlipInterval || 10) * 1000;
+            this.autoFlipTimer = setInterval(() => {
+                if (!this.tts.speaking) { // 听书时不自动翻页
+                    this.nextPage();
+                }
+            }, interval);
+        }
+    }
+    
+    // 开始朗读
+    startTTS() {
+        if (!window.speechSynthesis) {
+            alert('您的设备不支持语音合成');
+            return;
+        }
+        
+        if (this.tts.paused) {
+            window.speechSynthesis.resume();
+            this.tts.paused = false;
+            this.updateTTSUI();
+            return;
+        }
+        
+        // 获取当前页面内容
+        const text = this.pages[this.currentPage] || '';
+        if (!text.trim()) return;
+        
+        // 停止之前的朗读
+        window.speechSynthesis.cancel();
+        
+        // 创建语音合成实例
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = this.tts.rate;
+        utterance.pitch = 1;
+        
+        utterance.onend = () => {
+            // 自动翻页并继续朗读
+            if (this.currentPage < this.totalPages - 1) {
+                this.nextPage();
+                setTimeout(() => this.startTTS(), 500);
+            } else {
+                this.tts.speaking = false;
+                this.updateTTSUI();
+            }
+        };
+        
+        utterance.onerror = (e) => {
+            console.error('TTS错误:', e);
+            this.tts.speaking = false;
+            this.updateTTSUI();
+        };
+        
+        this.tts.currentUtterance = utterance;
+        this.tts.speaking = true;
+        this.tts.paused = false;
+        
+        window.speechSynthesis.speak(utterance);
+        this.updateTTSUI();
+    }
+    
+    // 暂停朗读
+    pauseTTS() {
+        if (window.speechSynthesis && this.tts.speaking) {
+            window.speechSynthesis.pause();
+            this.tts.paused = true;
+            this.updateTTSUI();
+        }
+    }
+    
+    // 停止朗读
+    stopTTS() {
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+        this.tts.speaking = false;
+        this.tts.paused = false;
+        this.tts.currentUtterance = null;
+        this.updateTTSUI();
+    }
+    
+    // 更新TTS UI
+    updateTTSUI() {
+        const playBtn = document.getElementById('tts-play');
+        const pauseBtn = document.getElementById('tts-pause');
+        
+        if (!playBtn || !pauseBtn) return;
+        
+        if (this.tts.speaking) {
+            if (this.tts.paused) {
+                playBtn.style.display = 'inline-block';
+                playBtn.textContent = '▶️ 继续';
+                pauseBtn.style.display = 'none';
+            } else {
+                playBtn.style.display = 'none';
+                pauseBtn.style.display = 'inline-block';
+            }
+        } else {
+            playBtn.style.display = 'inline-block';
+            playBtn.textContent = '▶️ 开始朗读';
+            pauseBtn.style.display = 'none';
+        }
     }
     
     // 处理触摸开始
@@ -530,9 +796,27 @@ class BookReader {
         
         // 应用设置
         document.getElementById('font-size-display').textContent = this.settings.fontSize;
-        document.getElementById('volume-key-toggle').checked = this.settings.useVolumeKey;
+        document.getElementById('volume-key-toggle').checked = this.settings.useVolumeKey !== false;
+        document.getElementById('keep-screen-on').checked = this.settings.keepScreenOn !== false;
+        document.getElementById('auto-flip').checked = this.settings.autoFlip === true;
+        document.getElementById('auto-flip-interval').value = this.settings.autoFlipInterval || 10;
+        document.getElementById('auto-flip-value').textContent = (this.settings.autoFlipInterval || 10) + '秒';
+        document.getElementById('font-family').value = this.settings.fontFamily || 'system';
+        document.getElementById('line-height').value = this.settings.lineHeight || 1.8;
+        document.getElementById('line-height-value').textContent = this.settings.lineHeight || 1.8;
+        
+        // 显示/隐藏自动翻页速度控制
+        const speedControl = document.querySelector('.auto-flip-speed');
+        if (speedControl) {
+            speedControl.style.display = this.settings.autoFlip ? 'block' : 'none';
+        }
+        
         this.changeBackground(this.settings.background);
         this.changeFlipMode(this.settings.flipMode);
+        this.applyFontFamily();
+        this.applyLineHeight();
+        this.applyKeepScreenOn();
+        this.applyAutoFlip();
     }
     
     // 保存阅读进度
@@ -551,6 +835,9 @@ class BookReader {
     
     // 关闭阅读器
     close() {
+        // 停止朗读
+        this.stopTTS();
+        
         this.saveProgress();
         document.getElementById('reader-container').classList.remove('active');
         

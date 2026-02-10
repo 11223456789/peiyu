@@ -36,43 +36,63 @@ class SimpleBookEngine {
         }
     }
 
-    // 搜索书籍 - 使用多个书源并行搜索
-    async search(keyword, maxResults = 20) {
+    // 搜索书籍 - 使用所有已启用的书源并行搜索
+    async search(keyword, maxResults = 30) {
         const results = [];
         const seen = new Set(); // 去重
         
         // 只使用已启用的书源
-        const enabledSources = this.sources.filter(s => s.enabled !== false);
+        const enabledSources = this.sources.filter(s => s.enabled !== false && s.searchUrl);
         console.log(`[搜索] 关键词: ${keyword}, 可用书源: ${enabledSources.length}个`);
         
-        // 并行搜索前5个书源
-        const searchPromises = enabledSources.slice(0, 5).map(async (source, idx) => {
-            try {
-                console.log(`[搜索] [${idx + 1}/5] 使用书源: ${source.bookSourceName}`);
-                const books = await this.searchWithSource(source, keyword);
-                console.log(`[搜索] [${idx + 1}/5] ${source.bookSourceName} 返回 ${books.length} 本书`);
-                return books;
-            } catch (e) {
-                console.log(`[搜索] [${idx + 1}/5] ${source.bookSourceName} 失败: ${e.message}`);
-                return [];
-            }
-        });
+        // 限制同时搜索的书源数量，避免请求过多
+        const batchSize = 20; // 每批20个书源
+        const batches = Math.ceil(enabledSources.length / batchSize);
         
-        const allResults = await Promise.all(searchPromises);
-        
-        // 合并结果并去重
-        for (const books of allResults) {
-            for (const book of books) {
-                const key = `${book.name}-${book.author}`;
-                if (!seen.has(key) && book.name && book.author) {
-                    seen.add(key);
-                    results.push(book);
+        for (let batch = 0; batch < batches; batch++) {
+            const start = batch * batchSize;
+            const end = Math.min(start + batchSize, enabledSources.length);
+            const batchSources = enabledSources.slice(start, end);
+            
+            console.log(`[搜索] 批次 ${batch + 1}/${batches}, 书源 ${start + 1}-${end}`);
+            
+            // 并行搜索当前批次
+            const searchPromises = batchSources.map(async (source, idx) => {
+                try {
+                    const books = await this.searchWithSource(source, keyword);
+                    if (books.length > 0) {
+                        console.log(`[搜索] ✓ ${source.bookSourceName}: ${books.length}本`);
+                    }
+                    return books;
+                } catch (e) {
+                    // 静默失败，不输出错误
+                    return [];
+                }
+            });
+            
+            const batchResults = await Promise.all(searchPromises);
+            
+            // 合并结果并去重
+            for (const books of batchResults) {
+                for (const book of books) {
+                    const key = `${book.name}-${book.author}`;
+                    if (!seen.has(key) && book.name && book.author) {
+                        seen.add(key);
+                        results.push(book);
+                        if (results.length >= maxResults) {
+                            console.log(`[搜索] 已达到最大结果数 ${maxResults}`);
+                            return results;
+                        }
+                    }
                 }
             }
+            
+            // 如果已经找到足够的结果，提前结束
+            if (results.length >= maxResults) break;
         }
         
         console.log(`[搜索] 总计找到 ${results.length} 本不重复书籍`);
-        return results.slice(0, maxResults);
+        return results;
     }
 
     async searchWithSource(source, keyword) {
@@ -249,8 +269,20 @@ class SimpleBookEngine {
         return base + url;
     }
 
-    // 获取章节列表
+    // 章节缓存
+    chapterCache = new Map();
+    chapterCacheMaxSize = 100; // 最多缓存100本书的章节
+
+    // 获取章节列表（带缓存）
     async getChapters(book) {
+        const cacheKey = `${book.source?.bookSourceUrl || book.sourceUrl}-${book.bookUrl}`;
+        
+        // 检查缓存
+        if (this.chapterCache.has(cacheKey)) {
+            console.log('[章节] 使用缓存:', book.name);
+            return this.chapterCache.get(cacheKey);
+        }
+        
         const source = book.source;
         const tocUrl = book.tocUrl || book.bookUrl;
         
@@ -282,7 +314,27 @@ class SimpleBookEngine {
             console.log('章节解析失败:', e);
         }
         
+        // 存入缓存
+        this.setChapterCache(cacheKey, chapters);
+        
         return chapters;
+    }
+    
+    // 设置章节缓存（LRU策略）
+    setChapterCache(key, chapters) {
+        // 如果缓存已满，删除最早的条目
+        if (this.chapterCache.size >= this.chapterCacheMaxSize) {
+            const firstKey = this.chapterCache.keys().next().value;
+            this.chapterCache.delete(firstKey);
+        }
+        
+        this.chapterCache.set(key, chapters);
+    }
+    
+    // 清除章节缓存
+    clearChapterCache() {
+        this.chapterCache.clear();
+        console.log('[章节] 缓存已清除');
     }
 
     // 获取章节内容

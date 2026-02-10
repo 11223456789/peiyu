@@ -160,6 +160,29 @@
             border-radius: 10px;
             align-self: flex-start;
         }
+        .book-list-item.selected {
+            background: rgba(25, 118, 210, 0.1);
+        }
+        .book-select-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            margin-right: 12px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .book-select-checkbox.checked {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .book-select-checkbox.checked::after {
+            content: '✓';
+            color: white;
+            font-size: 12px;
+        }
         
         /* 空状态 */
         .empty-state {
@@ -680,6 +703,167 @@
             margin: 0 auto 16px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 页面切换动画 */
+        .page {
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .page.active {
+            animation: fadeInUp 0.3s ease;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 书籍项悬停效果 */
+        .book-list-item {
+            transition: all 0.2s ease;
+        }
+        .book-list-item:active {
+            transform: scale(0.98);
+            background: rgba(0,0,0,0.05);
+        }
+        
+        /* 书籍网格项动画 */
+        .book-grid-item {
+            transition: all 0.2s ease;
+            animation: fadeIn 0.4s ease backwards;
+        }
+        .book-grid-item:nth-child(1) { animation-delay: 0.05s; }
+        .book-grid-item:nth-child(2) { animation-delay: 0.1s; }
+        .book-grid-item:nth-child(3) { animation-delay: 0.15s; }
+        .book-grid-item:nth-child(4) { animation-delay: 0.2s; }
+        .book-grid-item:nth-child(5) { animation-delay: 0.25s; }
+        .book-grid-item:nth-child(6) { animation-delay: 0.3s; }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .book-grid-item:active {
+            transform: scale(0.95);
+        }
+        
+        /* 按钮点击效果 */
+        .header-icon, .nav-item, .category-tag, button {
+            transition: all 0.2s ease;
+        }
+        .header-icon:active, .nav-item:active, .category-tag:active, button:active {
+            transform: scale(0.9);
+            opacity: 0.7;
+        }
+        
+        /* 设置项悬停效果 */
+        .settings-item {
+            transition: background 0.2s ease;
+        }
+        .settings-item:hover {
+            background: rgba(0,0,0,0.02);
+        }
+        
+        /* 开关动画 */
+        .switch {
+            transition: background 0.3s ease;
+        }
+        .switch::after {
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        /* 弹窗动画 */
+        .import-panel {
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        .import-panel.active {
+            animation: slideUp 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+            to {
+                transform: translateY(0);
+            }
+        }
+        
+        /* 遮罩层动画 */
+        .overlay {
+            transition: opacity 0.3s ease;
+        }
+        .overlay.active {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        /* 搜索框焦点效果 */
+        .search-input {
+            transition: all 0.3s ease;
+        }
+        .search-input:focus {
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.2);
+        }
+        
+        /* Toast 动画 */
+        .toast {
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        /* 图片加载占位 */
+        img {
+            background: linear-gradient(90deg, var(--bg-gray) 25%, #e0e0e0 50%, var(--bg-gray) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        img[src]:not([src=""]) {
+            animation: none;
+            background: transparent;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* 排行榜项动画 */
+        .ranking-item {
+            animation: slideInLeft 0.3s ease backwards;
+        }
+        .ranking-item:nth-child(1) { animation-delay: 0.05s; }
+        .ranking-item:nth-child(2) { animation-delay: 0.1s; }
+        .ranking-item:nth-child(3) { animation-delay: 0.15s; }
+        .ranking-item:nth-child(4) { animation-delay: 0.2s; }
+        .ranking-item:nth-child(5) { animation-delay: 0.25s; }
+        
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        /* 分类标签悬停 */
+        .category-tag {
+            transition: all 0.2s ease;
+        }
+        .category-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
     </style>
 </head>
 <body>
@@ -689,6 +873,7 @@
             <span class="header-title">书架</span>
             <div class="header-actions">
                 <span class="header-icon" onclick="showSearch()">🔍</span>
+                <span class="header-icon" onclick="enterBookshelfEditMode()">✏️</span>
                 <span class="header-icon" onclick="showMore()">⋮</span>
             </div>
         </div>
@@ -710,27 +895,53 @@
             <span class="search-btn" onclick="doSearch()">搜索</span>
         </div>
         
-        <div class="category-section">
-            <div class="category-title">热门分类</div>
-            <div class="category-grid">
-                <div class="category-tag" onclick="searchCategory('玄幻')">玄幻</div>
-                <div class="category-tag" onclick="searchCategory('武侠')">武侠</div>
-                <div class="category-tag" onclick="searchCategory('都市')">都市</div>
-                <div class="category-tag" onclick="searchCategory('仙侠')">仙侠</div>
-                <div class="category-tag" onclick="searchCategory('历史')">历史</div>
-                <div class="category-tag" onclick="searchCategory('军事')">军事</div>
-                <div class="category-tag" onclick="searchCategory('科幻')">科幻</div>
-                <div class="category-tag" onclick="searchCategory('游戏')">游戏</div>
+        <!-- 发现内容滚动区 -->
+        <div class="discover-content" style="flex: 1; overflow-y: auto; padding: 0 16px 80px;">
+            <!-- 排行榜 -->
+            <div class="category-section">
+                <div class="category-title">热门榜单</div>
+                <div class="ranking-tabs" style="display: flex; gap: 8px; overflow-x: auto; margin-bottom: 12px;">
+                    <div class="ranking-tab active" data-rank="hot" onclick="switchRanking('hot')" style="padding: 6px 12px; background: var(--bg-gray); border-radius: 16px; font-size: 13px; cursor: pointer; white-space: nowrap;">🔥 热销榜</div>
+                    <div class="ranking-tab" data-rank="new" onclick="switchRanking('new')" style="padding: 6px 12px; background: var(--bg-gray); border-radius: 16px; font-size: 13px; cursor: pointer; white-space: nowrap;">🆕 新书榜</div>
+                    <div class="ranking-tab" data-rank="finish" onclick="switchRanking('finish')" style="padding: 6px 12px; background: var(--bg-gray); border-radius: 16px; font-size: 13px; cursor: pointer; white-space: nowrap;">✅ 完结榜</div>
+                    <div class="ranking-tab" data-rank="update" onclick="switchRanking('update')" style="padding: 6px 12px; background: var(--bg-gray); border-radius: 16px; font-size: 13px; cursor: pointer; white-space: nowrap;">📈 更新榜</div>
+                </div>
+                <div class="ranking-list" id="ranking-list">
+                    <div class="empty-state" style="padding: 20px;">
+                        <div class="loading-spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                </div>
             </div>
-        </div>
-        
-        <div class="discover-section">
-            <div class="section-header">
-                <span class="section-title">搜索结果</span>
+            
+            <!-- 分类标签 -->
+            <div class="category-section">
+                <div class="category-title">热门分类</div>
+                <div class="category-grid">
+                    <div class="category-tag" onclick="searchCategory('玄幻')">玄幻</div>
+                    <div class="category-tag" onclick="searchCategory('武侠')">武侠</div>
+                    <div class="category-tag" onclick="searchCategory('都市')">都市</div>
+                    <div class="category-tag" onclick="searchCategory('仙侠')">仙侠</div>
+                    <div class="category-tag" onclick="searchCategory('历史')">历史</div>
+                    <div class="category-tag" onclick="searchCategory('军事')">军事</div>
+                    <div class="category-tag" onclick="searchCategory('科幻')">科幻</div>
+                    <div class="category-tag" onclick="searchCategory('游戏')">游戏</div>
+                    <div class="category-tag" onclick="searchCategory('言情')">言情</div>
+                    <div class="category-tag" onclick="searchCategory('悬疑')">悬疑</div>
+                    <div class="category-tag" onclick="searchCategory('二次元')">二次元</div>
+                    <div class="category-tag" onclick="searchCategory('恐怖')">恐怖</div>
+                </div>
             </div>
-            <div class="book-grid" id="discover-grid">
-                <div class="empty-state" style="grid-column: 1/-1; padding: 40px;">
-                    <div class="empty-text">输入关键词开始搜索</div>
+            
+            <!-- 搜索结果/推荐 -->
+            <div class="discover-section">
+                <div class="section-header">
+                    <span class="section-title">搜索结果</span>
+                </div>
+                <div class="book-grid" id="discover-grid">
+                    <div class="empty-state" style="grid-column: 1/-1; padding: 40px;">
+                        <div class="empty-text">输入关键词开始搜索</div>
+                    </div>
                 </div>
             </div>
         </div>
