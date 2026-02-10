@@ -1,4 +1,4 @@
-// 佩宇Reader - 简化版核心
+// 佩宇Reader v2.0 - Legado风格界面
 const Storage = {
     get: async (key) => {
         try {
@@ -18,25 +18,22 @@ const Storage = {
     }
 };
 
-// 全局状态
 let bookshelf = [];
 let currentBook = null;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async () => {
-    // 加载书架
     bookshelf = await Storage.get('bookshelf') || [];
     renderBookshelf();
     
-    // 初始化书源引擎
     try {
         await bookEngine.init();
-        showToast(`加载了 ${bookEngine.sources.length} 个书源`);
+        showToast(`已加载 ${bookEngine.sources.length} 个书源`);
+        renderSources();
     } catch (e) {
         showToast('书源加载失败');
     }
     
-    // 绑定事件
     setupEvents();
 });
 
@@ -51,14 +48,8 @@ function setupEvents() {
         });
     });
     
-    // 搜索
-    const searchBtn = document.getElementById('search-btn');
+    // 搜索输入框回车
     const searchInput = document.getElementById('search-input');
-    
-    if (searchBtn) {
-        searchBtn.addEventListener('click', doSearch);
-    }
-    
     if (searchInput) {
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') doSearch();
@@ -72,29 +63,49 @@ function switchPage(pageId) {
     if (page) page.classList.add('active');
 }
 
-// 渲染书架
+// 渲染书架 - 列表布局
 function renderBookshelf() {
-    const grid = document.getElementById('bookshelf-grid');
-    if (!grid) return;
+    const list = document.getElementById('bookshelf-list');
+    if (!list) return;
     
     if (bookshelf.length === 0) {
-        grid.innerHTML = `
-            <div class="empty-state" style="grid-column: 1/-1;">
-                <div style="font-size: 64px; margin-bottom: 20px;">📚</div>
-                <p>书架空空如也</p>
-                <p style="font-size: 14px; margin-top: 10px;">去"发现"页面搜索书籍吧</p>
+        list.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📚</div>
+                <div class="empty-text">书架空空如也<br>去"发现"页面找书吧</div>
             </div>
         `;
         return;
     }
     
-    grid.innerHTML = bookshelf.map(book => `
-        <div class="book-card" onclick="readBook('${book.id}')">
-            <img src="${book.coverUrl || 'https://via.placeholder.com/150x200/4a90e2/ffffff?text=' + encodeURIComponent(book.name?.slice(0,2) || '书')}" 
-                 class="book-cover" 
-                 onerror="this.src='https://via.placeholder.com/150x200/4a90e2/ffffff?text=书'">
-            <div class="book-title">${book.name || '未知书名'}</div>
-            <div class="book-author">${book.author || '未知作者'}</div>
+    list.innerHTML = bookshelf.map(book => `
+        <div class="book-list-item" onclick="readBook('${book.id}')">
+            <img src="${book.coverUrl || 'https://via.placeholder.com/70x95/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
+                 class="book-list-cover" 
+                 onerror="this.src='https://via.placeholder.com/70x95/1976d2/ffffff?text=书'">
+            <div class="book-list-info">
+                <div>
+                    <div class="book-list-title">${book.name || '未知书名'}</div>
+                    <div class="book-list-author">${book.author || '未知作者'}</div>
+                </div>
+                <div class="book-list-chapter">${book.latestChapter || '未读'}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// 渲染书源
+function renderSources() {
+    const list = document.getElementById('source-list');
+    if (!list || !bookEngine.sources.length) return;
+    
+    list.innerHTML = bookEngine.sources.slice(0, 20).map((source, idx) => `
+        <div class="settings-item">
+            <div class="settings-content">
+                <div class="settings-label">${source.bookSourceName || '未命名'}</div>
+                <div class="settings-desc">${source.bookSourceUrl}</div>
+            </div>
+            <span class="settings-value">${source.enabled !== false ? '已启用' : '已禁用'}</span>
         </div>
     `).join('');
 }
@@ -128,13 +139,12 @@ async function doSearch() {
         }
         
         grid.innerHTML = results.map(book => `
-            <div class="book-card" onclick='addBook(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
-                <img src="${book.coverUrl || 'https://via.placeholder.com/150x200/4a90e2/ffffff?text=' + encodeURIComponent(book.name?.slice(0,2) || '书')}" 
-                     class="book-cover"
-                     onerror="this.src='https://via.placeholder.com/150x200/4a90e2/ffffff?text=书'">
-                <div class="book-title">${book.name || '未知书名'}</div>
-                <div class="book-author">${book.author || '未知作者'}</div>
-                <div class="book-progress" style="color: #27ae60;">${book.sourceName || '网络'}</div>
+            <div class="book-grid-item" onclick='addBook(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
+                <img src="${book.coverUrl || 'https://via.placeholder.com/100x133/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
+                     class="book-grid-cover"
+                     onerror="this.src='https://via.placeholder.com/100x133/1976d2/ffffff?text=书'">
+                <div class="book-grid-title">${book.name || '未知书名'}</div>
+                <div class="book-grid-author">${book.author || '未知作者'}</div>
             </div>
         `).join('');
         
@@ -144,15 +154,21 @@ async function doSearch() {
         grid.innerHTML = `
             <div class="empty-state" style="grid-column: 1/-1;">
                 <p>搜索失败</p>
-                <p style="font-size: 14px; margin-top: 10px;">${e.message}</p>
+                <p style="font-size: 14px; margin-top: 10px;">请检查网络连接</p>
             </div>
         `;
     }
 }
 
-// 添加书籍到书架
+// 分类搜索
+function searchCategory(category) {
+    const input = document.getElementById('search-input');
+    if (input) input.value = category;
+    doSearch();
+}
+
+// 添加书籍
 async function addBook(book) {
-    // 检查是否已存在
     const exists = bookshelf.find(b => b.name === book.name && b.author === book.author);
     if (exists) {
         showToast('已在书架中');
@@ -160,7 +176,6 @@ async function addBook(book) {
         return;
     }
     
-    // 创建书籍对象
     const newBook = {
         id: Date.now().toString(36),
         name: book.name,
@@ -177,11 +192,8 @@ async function addBook(book) {
     
     bookshelf.push(newBook);
     await Storage.set('bookshelf', bookshelf);
-    
     renderBookshelf();
     showToast(`《${newBook.name}》已加入书架`);
-    
-    // 自动打开
     readBook(newBook.id);
 }
 
@@ -191,17 +203,15 @@ async function readBook(bookId) {
     if (!book) return;
     
     currentBook = book;
-    showToast('加载中...');
     
     try {
-        // 获取章节列表
         if (!book.chapters || book.chapters.length === 0) {
+            showToast('加载章节...');
             const chapters = await bookEngine.getChapters(book);
             book.chapters = chapters;
             await Storage.set('bookshelf', bookshelf);
         }
         
-        // 打开阅读器
         reader.openBook(book, book.chapters);
     } catch (e) {
         console.error('打开失败:', e);
@@ -224,6 +234,11 @@ function showReadingSettings() {
     showToast('请在阅读界面点击中间打开设置');
 }
 
+function showBookSourceSettings() {
+    switchPage('sources-page');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+}
+
 function clearCache() {
     if (confirm('确定清理缓存？')) {
         bookshelf.forEach(b => {
@@ -236,14 +251,59 @@ function clearCache() {
     }
 }
 
-// 兼容函数
-function closeReader() { reader.close(); }
-function showReaderSettings() { reader.showMenu(); }
-function hideReaderSettings() { reader.hideMenu(); }
-function changeFontSize(d) { reader.changeFontSize(d); }
-function changeBg(bg) { reader.changeBackground(bg); }
-function changeFlip(f) { reader.changeFlipMode(f); }
-function toggleChapterList() { 
-    const panel = document.querySelector('.chapter-panel');
+function refreshSources() {
+    showToast('刷新书源...');
+    bookEngine.init().then(() => {
+        renderSources();
+        showToast(`已刷新 ${bookEngine.sources.length} 个书源`);
+    });
+}
+
+function showSearch() {
+    switchPage('discover-page');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector('[data-page="discover-page"]').classList.add('active');
+    document.getElementById('search-input')?.focus();
+}
+
+function showMore() {
+    showToast('更多功能开发中');
+}
+
+// 阅读器控制
+function closeReader() { 
+    document.getElementById('reader').classList.remove('active');
+}
+
+function showReaderSettings() { 
+    document.getElementById('reader-settings').classList.add('active');
+    document.getElementById('reader-overlay').classList.add('active');
+}
+
+function hideReaderSettings() { 
+    document.getElementById('reader-settings').classList.remove('active');
+    document.getElementById('reader-overlay').classList.remove('active');
+}
+
+function changeFontSize(delta) { 
+    if (typeof reader !== 'undefined') reader.changeFontSize(delta);
+}
+
+function changeBg(bg) { 
+    if (typeof reader !== 'undefined') reader.changeBackground(bg);
+    document.querySelectorAll('.bg-option').forEach(el => el.classList.remove('active'));
+    document.querySelector(`[data-bg="${bg}"]`)?.classList.add('active');
+}
+
+function changeFlip(mode) { 
+    if (typeof reader !== 'undefined') reader.changeFlipMode(mode);
+    document.querySelectorAll('.flip-mode').forEach(el => el.classList.remove('active'));
+    document.querySelector(`[data-flip="${mode}"]`)?.classList.add('active');
+}
+
+function toggleChapterPanel() { 
+    const panel = document.getElementById('chapter-panel');
+    const overlay = document.getElementById('chapter-overlay');
     if (panel) panel.classList.toggle('active');
+    if (overlay) overlay.classList.toggle('active');
 }

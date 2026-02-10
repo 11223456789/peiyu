@@ -4,352 +4,624 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>佩宇Reader</title>
-    <meta name="theme-color" content="#1a1a2e">
+    <meta name="theme-color" content="#ffffff">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
-            --primary: #00d4ff;
-            --secondary: #7b2cbf;
-            --bg-dark: #1a1a2e;
-            --bg-card: rgba(255,255,255,0.05);
-            --text-primary: #ffffff;
-            --text-secondary: #888888;
-            --border: rgba(255,255,255,0.1);
+            --primary: #1976d2;
+            --primary-light: #42a5f5;
+            --bg-white: #ffffff;
+            --bg-gray: #f5f5f5;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-tertiary: #999999;
+            --border: #e0e0e0;
+            --divider: #eeeeee;
         }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background: var(--bg-gray);
             min-height: 100vh;
             color: var(--text-primary);
             overflow-x: hidden;
         }
         
+        /* 底部导航 - Legado风格 */
         .bottom-nav {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(26, 26, 46, 0.95);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border);
+            background: var(--bg-white);
+            border-top: 1px solid var(--divider);
             display: flex;
             justify-content: space-around;
-            padding: 8px 0;
+            padding: 6px 0;
             z-index: 1000;
         }
         
-        .nav-item { display: flex; flex-direction: column; align-items: center; padding: 5px 20px; cursor: pointer; transition: all 0.3s; color: var(--text-secondary); }
+        .nav-item { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 4px 20px; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            color: var(--text-tertiary); 
+        }
         .nav-item.active { color: var(--primary); }
-        .nav-item i { font-size: 24px; margin-bottom: 4px; }
-        .nav-item span { font-size: 12px; }
+        .nav-item i { font-size: 22px; margin-bottom: 2px; }
+        .nav-item span { font-size: 11px; }
         
-        .page { display: none; padding: 20px; padding-bottom: 80px; min-height: 100vh; animation: fadeIn 0.3s ease; }
+        /* 页面容器 */
+        .page { 
+            display: none; 
+            padding-bottom: 60px; 
+            min-height: 100vh;
+            background: var(--bg-gray);
+        }
         .page.active { display: block; }
         
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 10px; }
-        .header h1 { font-size: 28px; background: linear-gradient(45deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .header-actions { display: flex; gap: 15px; }
-        
-        .icon-btn {
-            width: 40px; height: 40px; border-radius: 50%; background: var(--bg-card);
-            border: 1px solid var(--border); color: var(--text-primary);
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; font-size: 20px; transition: all 0.3s;
+        /* 顶部标题栏 */
+        .header-bar {
+            background: var(--bg-white);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--divider);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        .icon-btn:hover { background: rgba(0, 212, 255, 0.1); border-color: var(--primary); }
+        .header-title { font-size: 18px; font-weight: 600; }
+        .header-actions { display: flex; gap: 16px; }
+        .header-icon { font-size: 20px; color: var(--text-secondary); cursor: pointer; }
         
-        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        /* 搜索框 */
+        .search-box {
+            background: var(--bg-white);
+            padding: 12px 16px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .search-input-wrapper {
+            flex: 1;
+            background: var(--bg-gray);
+            border-radius: 20px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
         .search-input {
-            flex: 1; padding: 12px 20px; border-radius: 25px; border: 1px solid var(--border);
-            background: var(--bg-card); color: var(--text-primary); font-size: 16px;
-            outline: none; transition: all 0.3s;
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            outline: none;
+            color: var(--text-primary);
         }
-        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1); }
-        .search-input::placeholder { color: var(--text-secondary); }
-        
-        .search-btn, .primary-btn {
-            padding: 12px 25px; border-radius: 25px; border: none;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            color: white; font-size: 16px; cursor: pointer; transition: all 0.3s;
+        .search-btn {
+            color: var(--primary);
+            font-size: 14px;
+            cursor: pointer;
         }
-        .search-btn:hover, .primary-btn:hover { transform: scale(1.05); box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3); }
         
-        .category-tabs { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
-        .category-tab {
-            padding: 8px 20px; border-radius: 20px; background: var(--bg-card);
-            border: 1px solid var(--border); color: var(--text-secondary);
-            cursor: pointer; white-space: nowrap; transition: all 0.3s;
+        /* 书架 - 列表布局 */
+        .bookshelf-list {
+            background: var(--bg-white);
         }
-        .category-tab.active { background: linear-gradient(45deg, var(--primary), var(--secondary)); color: white; border-color: transparent; }
-        
-        .books-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        @media (min-width: 768px) { .books-grid { grid-template-columns: repeat(4, 1fr); } }
-        @media (min-width: 1024px) { .books-grid { grid-template-columns: repeat(5, 1fr); } }
-        
-        .book-card { cursor: pointer; transition: all 0.3s; }
-        .book-card:hover { transform: translateY(-5px); }
-        .book-cover { width: 100%; aspect-ratio: 3/4; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 15px rgba(0,0,0,0.3); margin-bottom: 8px; }
-        .book-title { font-size: 14px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
-        .book-author { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .book-progress { font-size: 11px; color: var(--primary); margin-top: 4px; }
-        
-        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
-        
-        /* 书源管理 */
-        .source-list { display: flex; flex-direction: column; gap: 10px; }
-        .source-item { 
-            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; 
-            padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;
+        .book-list-item {
+            display: flex;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--divider);
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        .source-info h3 { font-size: 16px; color: var(--text-primary); margin-bottom: 4px; }
-        .source-info p { font-size: 13px; color: var(--text-secondary); }
-        .source-toggle { 
-            width: 50px; height: 28px; border-radius: 14px; background: var(--bg-card); 
-            border: 2px solid var(--border); position: relative; cursor: pointer; transition: all 0.3s;
+        .book-list-item:active { background: var(--bg-gray); }
+        .book-list-cover {
+            width: 70px;
+            height: 95px;
+            border-radius: 4px;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            flex-shrink: 0;
         }
-        .source-toggle.active { background: linear-gradient(45deg, var(--primary), var(--secondary)); border-color: transparent; }
-        .source-toggle::after { 
-            content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; 
-            background: white; top: 2px; left: 2px; transition: all 0.3s;
+        .book-list-info {
+            flex: 1;
+            margin-left: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
-        .source-toggle.active::after { left: 26px; }
+        .book-list-title {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+        .book-list-author {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .book-list-chapter {
+            font-size: 12px;
+            color: var(--text-tertiary);
+        }
+        .book-list-update {
+            background: #ff5252;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            align-self: flex-start;
+        }
         
-        .import-btn {
-            width: 100%; padding: 15px; margin-bottom: 20px;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            border: none; border-radius: 12px; color: white;
-            font-size: 16px; cursor: pointer; display: flex;
-            align-items: center; justify-content: center; gap: 10px;
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-tertiary);
+        }
+        .empty-icon { font-size: 64px; margin-bottom: 16px; }
+        .empty-text { font-size: 14px; }
+        
+        /* 发现页 - 分类标签 */
+        .category-section {
+            background: var(--bg-white);
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+        .category-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .category-tag {
+            background: var(--bg-gray);
+            padding: 8px 4px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .category-tag:active { background: var(--divider); }
+        
+        /* 发现页 - 书籍网格 */
+        .discover-section {
+            background: var(--bg-white);
+            padding: 16px;
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .section-title { font-size: 16px; font-weight: 600; }
+        .section-more { font-size: 13px; color: var(--text-tertiary); }
+        
+        .book-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .book-grid-item { cursor: pointer; }
+        .book-grid-cover {
+            width: 100%;
+            aspect-ratio: 3/4;
+            border-radius: 4px;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .book-grid-title {
+            font-size: 13px;
+            margin-top: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .book-grid-author {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+        }
+        
+        /* 设置页 */
+        .settings-group {
+            background: var(--bg-white);
+            margin-bottom: 8px;
+        }
+        .settings-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--divider);
+            cursor: pointer;
+        }
+        .settings-item:last-child { border-bottom: none; }
+        .settings-icon {
+            width: 24px;
+            font-size: 18px;
+            color: var(--text-secondary);
+            margin-right: 12px;
+        }
+        .settings-content { flex: 1; }
+        .settings-label { font-size: 15px; color: var(--text-primary); }
+        .settings-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+        .settings-arrow {
+            color: var(--text-tertiary);
+            font-size: 14px;
+        }
+        .settings-value {
+            font-size: 13px;
+            color: var(--text-tertiary);
+            margin-right: 8px;
         }
         
         /* 阅读器 */
         .reader-page {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: #1a1a1a; z-index: 2000; display: none; flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #f5f5f5;
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
         }
         .reader-page.active { display: flex; }
-        .reader-header { 
-            display: flex; justify-content: space-between; align-items: center; 
-            padding: 15px 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-        }
-        .reader-title { font-size: 16px; color: var(--text-primary); }
-        .reader-content { 
-            flex: 1; overflow-y: auto; padding: 20px; line-height: 1.8; 
-            font-size: 18px; color: #ccc;
-        }
-        .reader-content h2 { color: var(--text-primary); margin-bottom: 20px; font-size: 22px; }
-        .reader-content p { margin-bottom: 15px; text-indent: 2em; }
-        .reader-toolbar { 
-            display: flex; justify-content: space-around; padding: 15px; 
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-        }
-        .reader-btn { 
-            padding: 10px 30px; border-radius: 25px; border: 1px solid var(--border); 
-            background: transparent; color: var(--text-primary); cursor: pointer; transition: all 0.3s;
-        }
-        .reader-btn:hover { background: var(--bg-card); border-color: var(--primary); }
         
-        /* 阅读设置 */
-        .reader-settings {
-            position: fixed; bottom: -100%; left: 0; right: 0;
-            background: rgba(30, 30, 50, 0.98); backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border); z-index: 2002;
-            transition: bottom 0.3s ease; padding: 20px;
+        .reader-header {
+            background: var(--bg-white);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--divider);
         }
-        .reader-settings.active { bottom: 0; }
-        .settings-section { margin-bottom: 20px; }
-        .settings-section h4 { font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; }
-        .font-size-control { display: flex; align-items: center; gap: 15px; }
-        .font-btn { 
-            width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border); 
-            background: var(--bg-card); color: var(--text-primary); font-size: 20px; cursor: pointer;
-        }
-        .font-size-display { font-size: 18px; color: var(--primary); min-width: 60px; text-align: center; }
+        .reader-back { font-size: 20px; cursor: pointer; }
+        .reader-title { font-size: 16px; flex: 1; text-align: center; margin: 0 16px; }
+        .reader-menu-btn { font-size: 20px; cursor: pointer; }
         
-        .bg-options { display: flex; gap: 10px; }
-        .bg-option { 
-            width: 50px; height: 50px; border-radius: 10px; cursor: pointer; 
-            border: 3px solid transparent; transition: all 0.3s;
+        .reader-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            line-height: 1.8;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+        .reader-content h2 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .reader-content p {
+            margin-bottom: 16px;
+            text-indent: 2em;
+        }
+        
+        /* 阅读设置面板 - Legado风格 */
+        .reader-settings-panel {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-white);
+            border-top: 1px solid var(--divider);
+            z-index: 2002;
+            transition: bottom 0.3s ease;
+            padding: 16px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .reader-settings-panel.active { bottom: 0; }
+        
+        .settings-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .settings-row-label {
+            width: 60px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .settings-row-content { flex: 1; }
+        
+        /* 滑块 */
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .slider-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-white);
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .slider-track {
+            flex: 1;
+            height: 4px;
+            background: var(--divider);
+            border-radius: 2px;
+            position: relative;
+        }
+        .slider-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+        .slider-thumb {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        /* 背景色选项 */
+        .bg-options {
+            display: flex;
+            gap: 12px;
+        }
+        .bg-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            position: relative;
         }
         .bg-option.active { border-color: var(--primary); }
-        .bg-dark { background: #1a1a1a; }
-        .bg-light { background: #f5f5f5; }
-        .bg-sepia { background: #f4ecd8; }
-        .bg-green { background: #c7edcc; }
-        .bg-blue { background: #cce8cf; }
-        
-        .flip-options { display: flex; gap: 10px; }
-        .flip-option { 
-            flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border); 
-            background: var(--bg-card); color: var(--text-secondary); text-align: center; 
-            cursor: pointer; transition: all 0.3s;
+        .bg-option.active::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--primary);
+            font-size: 16px;
+            font-weight: bold;
         }
-        .flip-option.active { background: linear-gradient(45deg, var(--primary), var(--secondary)); color: white; border-color: transparent; }
+        .bg-white { background: #ffffff; border: 1px solid var(--divider); }
+        .bg-yellow { background: #f4ecd8; }
+        .bg-green { background: #c7edcc; }
+        .bg-dark { background: #1a1a1a; }
         
-        .close-settings { 
-            position: absolute; top: 15px; right: 20px; width: 30px; height: 30px; 
-            border-radius: 50%; border: none; background: var(--bg-card); 
-            color: var(--text-primary); font-size: 18px; cursor: pointer;
+        /* 翻页模式 */
+        .flip-modes {
+            display: flex;
+            gap: 12px;
+        }
+        .flip-mode {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid var(--divider);
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .flip-mode.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: rgba(25, 118, 210, 0.05);
         }
         
         /* 章节列表 */
+        .chapter-panel {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 80%;
+            max-width: 320px;
+            height: 100%;
+            background: var(--bg-white);
+            z-index: 2003;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        .chapter-panel.active { right: 0; }
+        .chapter-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--divider);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
         .chapter-list {
-            position: fixed; top: 0; right: -100%; width: 80%; max-width: 400px;
-            height: 100%; background: var(--bg-dark); z-index: 2001;
-            transition: right 0.3s ease; display: flex; flex-direction: column;
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
         }
-        .chapter-list.active { right: 0; }
-        .chapter-header { 
-            padding: 20px; border-bottom: 1px solid var(--border); 
-            display: flex; justify-content: space-between; align-items: center;
+        .chapter-item {
+            padding: 12px 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--divider);
+            cursor: pointer;
         }
-        .chapter-list-content { flex: 1; overflow-y: auto; padding: 10px 0; }
-        .chapter-item { 
-            padding: 15px 20px; border-bottom: 1px solid var(--border); 
-            cursor: pointer; transition: all 0.2s; color: var(--text-secondary);
-        }
-        .chapter-item:hover, .chapter-item.active { 
-            background: rgba(0, 212, 255, 0.1); color: var(--primary); padding-left: 30px;
-        }
+        .chapter-item.active { color: var(--primary); background: rgba(25, 118, 210, 0.05); }
         
-        .overlay { 
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
-            background: rgba(0,0,0,0.5); z-index: 2000; display: none;
+        /* 遮罩 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2001;
+            display: none;
         }
         .overlay.active { display: block; }
         
+        /* Toast */
         .toast {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); color: white; padding: 15px 30px;
-            border-radius: 10px; z-index: 3000; display: none;
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 3000;
+            opacity: 0;
+            transition: all 0.3s;
         }
-        .toast.show { display: block; }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
         
         /* 加载动画 */
-        .loading { display: flex; justify-content: center; align-items: center; padding: 40px; }
-        .loading-spinner { 
-            width: 40px; height: 40px; border: 3px solid var(--border); 
-            border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--divider);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        /* 弹窗 */
-        .modal { 
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
-            background: rgba(0,0,0,0.8); z-index: 2500; display: none; 
-            justify-content: center; align-items: center;
-        }
-        .modal.active { display: flex; }
-        .modal-content { 
-            background: var(--bg-dark); border-radius: 20px; padding: 30px; 
-            width: 90%; max-width: 400px; border: 1px solid var(--border);
-        }
-        .modal-title { font-size: 20px; margin-bottom: 20px; text-align: center; }
-        .modal-btn { 
-            width: 100%; padding: 15px; border-radius: 10px; border: none; 
-            background: linear-gradient(45deg, var(--primary), var(--secondary)); 
-            color: white; font-size: 16px; cursor: pointer; margin-top: 15px;
-        }
-        
-        textarea {
-            width: 100%; min-height: 200px; padding: 15px; border-radius: 10px;
-            border: 1px solid var(--border); background: var(--bg-card);
-            color: var(--text-primary); font-size: 14px; resize: vertical;
-        }
     </style>
 </head>
 <body>
     <!-- 书架页面 -->
     <div class="page active" id="bookshelf-page">
-        <div class="header">
-            <h1>📚 我的书架</h1>
+        <div class="header-bar">
+            <span class="header-title">书架</span>
             <div class="header-actions">
-                <button class="icon-btn" onclick="showSearch()">🔍</button>
-                <button class="icon-btn" onclick="showAddBook()">➕</button>
+                <span class="header-icon" onclick="showSearch()">🔍</span>
+                <span class="header-icon" onclick="showMore()">⋮</span>
             </div>
         </div>
-        
-        <div class="category-tabs">
-            <div class="category-tab active" data-category="all">全部</div>
-            <div class="category-tab" data-category="reading">在读</div>
-            <div class="category-tab" data-category="completed">已读完</div>
-        </div>
-        
-        <div class="books-grid" id="bookshelf-grid"></div>
-        
-        <div class="empty-state" id="empty-bookshelf" style="display: none;">
-            <div style="font-size: 64px; margin-bottom: 20px;">📖</div>
-            <p>书架是空的</p>
-            <p style="margin-top: 10px; font-size: 14px;">点击右上角 + 添加书籍</p>
+        <div class="bookshelf-list" id="bookshelf-list">
+            <div class="empty-state">
+                <div class="empty-icon">📚</div>
+                <div class="empty-text">书架空空如也<br>去"发现"页面找书吧</div>
+            </div>
         </div>
     </div>
     
     <!-- 发现页面 -->
     <div class="page" id="discover-page">
-        <div class="header">
-            <h1>🔍 发现</h1>
+        <div class="search-box">
+            <div class="search-input-wrapper">
+                <span>🔍</span>
+                <input type="text" class="search-input" id="search-input" placeholder="搜索书名或作者">
+            </div>
+            <span class="search-btn" onclick="doSearch()">搜索</span>
         </div>
         
-        <div class="search-bar">
-            <input type="text" class="search-input" id="search-input" placeholder="搜索书名、作者...">
-            <button class="search-btn" onclick="searchBooks()">搜索</button>
+        <div class="category-section">
+            <div class="category-title">热门分类</div>
+            <div class="category-grid">
+                <div class="category-tag" onclick="searchCategory('玄幻')">玄幻</div>
+                <div class="category-tag" onclick="searchCategory('武侠')">武侠</div>
+                <div class="category-tag" onclick="searchCategory('都市')">都市</div>
+                <div class="category-tag" onclick="searchCategory('仙侠')">仙侠</div>
+                <div class="category-tag" onclick="searchCategory('历史')">历史</div>
+                <div class="category-tag" onclick="searchCategory('军事')">军事</div>
+                <div class="category-tag" onclick="searchCategory('科幻')">科幻</div>
+                <div class="category-tag" onclick="searchCategory('游戏')">游戏</div>
+            </div>
         </div>
         
-        <div class="category-tabs">
-            <div class="category-tab active" data-type="all">全部</div>
-            <div class="category-tab" data-type="xuanhuan">玄幻</div>
-            <div class="category-tab" data-type="wuxia">武侠</div>
-            <div class="category-tab" data-type="xianxia">仙侠</div>
+        <div class="discover-section">
+            <div class="section-header">
+                <span class="section-title">搜索结果</span>
+            </div>
+            <div class="book-grid" id="discover-grid">
+                <div class="empty-state" style="grid-column: 1/-1; padding: 40px;">
+                    <div class="empty-text">输入关键词开始搜索</div>
+                </div>
+            </div>
         </div>
-        
-        <div class="books-grid" id="discover-grid"></div>
     </div>
     
     <!-- 书源页面 -->
     <div class="page" id="sources-page">
-        <div class="header">
-            <h1>🔌 书源管理</h1>
+        <div class="header-bar">
+            <span class="header-title">书源管理</span>
+            <div class="header-actions">
+                <span class="header-icon" onclick="refreshSources()">🔄</span>
+            </div>
         </div>
-        
-        <div class="source-list" id="source-list"></div>
+        <div class="settings-group" id="source-list">
+            <div class="settings-item">
+                <div class="settings-content">
+                    <div class="settings-label">正在加载书源...</div>
+                </div>
+            </div>
+        </div>
     </div>
     
-    <!-- 设置页面 -->
+    <!-- 我的页面 -->
     <div class="page" id="settings-page">
-        <div class="header">
-            <h1>⚙️ 设置</h1>
+        <div class="header-bar">
+            <span class="header-title">我的</span>
         </div>
         
-        <div class="settings-list" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;">
-            <div class="setting-item" onclick="showReadingSettings()">
-                <div class="setting-left">
-                    <div class="setting-icon">📖</div>
-                    <div class="setting-info">
-                        <h3>阅读设置</h3>
-                        <p>字体、背景、翻页效果</p>
-                    </div>
+        <div class="settings-group">
+            <div class="settings-item" onclick="showReadingSettings()">
+                <span class="settings-icon">📖</span>
+                <div class="settings-content">
+                    <div class="settings-label">阅读设置</div>
+                    <div class="settings-desc">字体、背景、翻页效果</div>
                 </div>
-                <span class="setting-arrow">›</span>
+                <span class="settings-arrow">›</span>
             </div>
-            <div class="setting-item" onclick="clearCache()">
-                <div class="setting-left">
-                    <div class="setting-icon">🗑️</div>
-                    <div class="setting-info">
-                        <h3>清理缓存</h3>
-                        <p>清除下载的书籍数据</p>
-                    </div>
+            <div class="settings-item" onclick="showBookSourceSettings()">
+                <span class="settings-icon">🔌</span>
+                <div class="settings-content">
+                    <div class="settings-label">书源管理</div>
+                    <div class="settings-desc">管理书源和订阅</div>
                 </div>
-                <span class="setting-arrow">›</span>
+                <span class="settings-arrow">›</span>
             </div>
         </div>
         
-        <div style="text-align: center; margin-top: 40px; color: var(--text-secondary);">
-            <p>Peiyu Reader v2.0</p>
-            <p style="font-size: 12px; margin-top: 10px;">韩宇制作</p>
+        <div class="settings-group">
+            <div class="settings-item" onclick="clearCache()">
+                <span class="settings-icon">🗑️</span>
+                <div class="settings-content">
+                    <div class="settings-label">清理缓存</div>
+                    <div class="settings-desc">清除已下载的章节内容</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
+            <div class="settings-item">
+                <span class="settings-icon">ℹ️</span>
+                <div class="settings-content">
+                    <div class="settings-label">关于</div>
+                    <div class="settings-desc">佩宇Reader v2.0.1</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
         </div>
     </div>
     
@@ -368,101 +640,86 @@
             <span>书源</span>
         </div>
         <div class="nav-item" data-page="settings-page">
-            <i>⚙️</i>
-            <span>设置</span>
+            <i>👤</i>
+            <span>我的</span>
         </div>
     </nav>
     
     <!-- 阅读器 -->
     <div class="reader-page" id="reader">
         <div class="reader-header">
-            <button class="icon-btn" onclick="closeReader()">←</button>
+            <span class="reader-back" onclick="closeReader()">←</span>
             <span class="reader-title" id="reader-title">章节标题</span>
-            <button class="icon-btn" onclick="toggleChapterList()">☰</button>
+            <span class="reader-menu-btn" onclick="toggleChapterPanel()">☰</span>
         </div>
         <div class="reader-content" id="reader-content">
-            <h2>第一章</h2>
             <p>加载中...</p>
-        </div>
-        <div class="reader-toolbar">
-            <button class="reader-btn" onclick="prevChapter()">上一章</button>
-            <button class="reader-btn" onclick="showReaderSettings()">设置</button>
-            <button class="reader-btn" onclick="nextChapter()">下一章</button>
         </div>
     </div>
     
     <!-- 阅读设置面板 -->
-    <div class="reader-settings" id="reader-settings">
-        <button class="close-settings" onclick="hideReaderSettings()">✕</button>
-        
-        <div class="settings-section">
-            <h4>字体大小</h4>
-            <div class="font-size-control">
-                <button class="font-btn" onclick="changeFontSize(-2)">A-</button>
-                <span class="font-size-display" id="font-size-display">18px</span>
-                <button class="font-btn" onclick="changeFontSize(2)">A+</button>
+    <div class="overlay" id="reader-overlay" onclick="hideReaderSettings()"></div>
+    <div class="reader-settings-panel" id="reader-settings">
+        <div class="settings-row">
+            <span class="settings-row-label">字号</span>
+            <div class="settings-row-content">
+                <div class="slider-control">
+                    <button class="slider-btn" onclick="changeFontSize(-1)">A-</button>
+                    <div class="slider-track">
+                        <div class="slider-fill" id="font-slider-fill" style="width: 50%"></div>
+                        <div class="slider-thumb" id="font-slider-thumb" style="left: 50%"></div>
+                    </div>
+                    <button class="slider-btn" onclick="changeFontSize(1)">A+</button>
+                </div>
             </div>
         </div>
         
-        <div class="settings-section">
-            <h4>背景颜色</h4>
-            <div class="bg-options">
-                <div class="bg-option bg-dark active" data-bg="dark" onclick="changeBg('dark')"></div>
-                <div class="bg-option bg-light" data-bg="light" onclick="changeBg('light')"></div>
-                <div class="bg-option bg-sepia" data-bg="sepia" onclick="changeBg('sepia')"></div>
-                <div class="bg-option bg-green" data-bg="green" onclick="changeBg('green')"></div>
-                <div class="bg-option bg-blue" data-bg="blue" onclick="changeBg('blue')"></div>
+        <div class="settings-row">
+            <span class="settings-row-label">背景</span>
+            <div class="settings-row-content">
+                <div class="bg-options">
+                    <div class="bg-option bg-white active" data-bg="white" onclick="changeBg('white')"></div>
+                    <div class="bg-option bg-yellow" data-bg="yellow" onclick="changeBg('yellow')"></div>
+                    <div class="bg-option bg-green" data-bg="green" onclick="changeBg('green')"></div>
+                    <div class="bg-option bg-dark" data-bg="dark" onclick="changeBg('dark')"></div>
+                </div>
             </div>
         </div>
         
-        <div class="settings-section">
-            <h4>翻页效果</h4>
-            <div class="flip-options">
-                <div class="flip-option active" data-flip="slide" onclick="changeFlip('slide')">滑动</div>
-                <div class="flip-option" data-flip="fade" onclick="changeFlip('fade')">淡入</div>
-                <div class="flip-option" data-flip="none" onclick="changeFlip('none')">无动画</div>
+        <div class="settings-row">
+            <span class="settings-row-label">翻页</span>
+            <div class="settings-row-content">
+                <div class="flip-modes">
+                    <div class="flip-mode active" data-flip="slide" onclick="changeFlip('slide')">滑动</div>
+                    <div class="flip-mode" data-flip="cover" onclick="changeFlip('cover')">覆盖</div>
+                    <div class="flip-mode" data-flip="none" onclick="changeFlip('none')">无动画</div>
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- 章节列表 -->
-    <div class="overlay" id="chapter-overlay" onclick="toggleChapterList()"></div>
-    <div class="chapter-list" id="chapter-list">
+    <!-- 章节列表面板 -->
+    <div class="overlay" id="chapter-overlay" onclick="toggleChapterPanel()"></div>
+    <div class="chapter-panel" id="chapter-panel">
         <div class="chapter-header">
-            <h3>章节目录</h3>
-            <button class="icon-btn" onclick="toggleChapterList()">✕</button>
+            <span class="header-title">章节目录</span>
+            <span class="header-icon" onclick="toggleChapterPanel()">✕</span>
         </div>
-        <div class="chapter-list-content" id="chapter-list-content"></div>
-    </div>
-    
-    <!-- 导入书源弹窗 -->
-    <div class="modal" id="import-modal">
-        <div class="modal-content">
-            <h3 class="modal-title">📥 导入书源</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 14px;">
-                粘贴书源JSON内容（支持Legado格式）
-            </p>
-            <textarea id="source-input" placeholder="[{&#10;  &#34;bookSourceName&#34;: &#34;书源名称&#34;,&#10;  &#34;bookSourceUrl&#34;: &#34;http://...&#34;,&#10;  ...&#10;}]"></textarea>
-            <button class="modal-btn" onclick="importSource()">导入</button>
-            <button class="modal-btn" style="background: var(--bg-card); margin-top: 10px;" onclick="closeImportDialog()">取消</button>
-        </div>
+        <div class="chapter-list" id="chapter-list"></div>
     </div>
     
     <!-- Toast提示 -->
     <div class="toast" id="toast"></div>
 
-    <!-- 阅读器容器 -->
-    <div id="reader-wrapper"></div>
-
     <script src="capacitor.js"></script>
     <script src="simpleEngine.js"></script>
     <script src="reader.js"></script>
-    <link rel="stylesheet" href="reader.css">
     <script src="app.js"></script>
     <script>
-        // 初始化阅读器
         document.addEventListener('DOMContentLoaded', () => {
-            reader.init('reader-wrapper');
+            if (typeof reader !== 'undefined') {
+                reader.init('reader-content');
+            }
         });
     </script>
 </body>
