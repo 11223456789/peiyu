@@ -1,7 +1,7 @@
 {
   "name": "legado_reader",
-  "version": "1.0.0",
-  "description": "佩宇Reader - 高级阅读器APP",
+  "version": "2.0.0",
+  "description": "佩宇Reader v2.0 - 重构版阅读器APP",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
