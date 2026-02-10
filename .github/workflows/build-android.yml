@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     
     steps:
     - name: Checkout repository
@@ -39,6 +39,8 @@ jobs:
         
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
+      env:
+        SKIP_JDK_VERSION_CHECK: true
       
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
