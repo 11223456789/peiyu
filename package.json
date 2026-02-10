@@ -1,7 +1,7 @@
 {
   "name": "legado_reader",
   "version": "1.0.0",
-  "description": "<<<<<<< HEAD\r # ✨ 佩宇Reader 高级版 - PeiYu Reader Advanced",
+  "description": "佩宇Reader - 高级阅读器APP",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -20,8 +20,8 @@
   "homepage": "https://github.com/11223456789/peiyu#readme",
   "dependencies": {
     "@capacitor-community/http": "^1.4.1",
-    "@capacitor/android": "^8.0.2",
-    "@capacitor/cli": "^8.0.2",
-    "@capacitor/core": "^8.0.2"
+    "@capacitor/android": "^4.8.1",
+    "@capacitor/cli": "^4.8.1",
+    "@capacitor/core": "^4.8.1"
   }
 }
