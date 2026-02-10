@@ -80,23 +80,28 @@ async function initApp() {
 }
 
 async function loadDefaultSources() {
-    // 默认书源（示例）
-    appData.sources = [
-        {
-            bookSourceName: "笔趣阁",
-            bookSourceUrl: "https://www.biquge.com.cn",
-            enabled: true,
-            ruleSearch: {
-                bookList: "$.data",
-                name: "name",
-                author: "author",
-                coverUrl: "cover",
-                intro: "intro",
-                bookUrl: "bookUrl"
+    // 加载内置书源
+    try {
+        const response = await fetch('book_sources.json');
+        const sources = await response.json();
+        // 只启用前5个书源，避免太多
+        appData.sources = sources.slice(0, 5).map(s => ({
+            ...s,
+            enabled: true
+        }));
+        await Storage.set('sources', appData.sources);
+    } catch (e) {
+        console.error('加载内置书源失败:', e);
+        // 备用默认书源
+        appData.sources = [
+            {
+                bookSourceName: "笔趣阁",
+                bookSourceUrl: "https://www.biquge.com.cn",
+                enabled: true
             }
-        }
-    ];
-    await Storage.set('sources', appData.sources);
+        ];
+        await Storage.set('sources', appData.sources);
+    }
 }
 
 // ==================== 导航 ====================
