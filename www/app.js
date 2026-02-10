@@ -1,7 +1,4 @@
-// 佩宇Reader APP - 核心JavaScript
-// 使用 Legado 书源规则
-
-// ==================== 数据存储 ====================
+// 佩宇Reader - 简化版核心
 const Storage = {
     get: async (key) => {
         try {
@@ -14,89 +11,73 @@ const Storage = {
     },
     set: async (key, value) => {
         try {
-            await Capacitor.Plugins.Preferences.set({
-                key,
-                value: JSON.stringify(value)
-            });
+            await Capacitor.Plugins.Preferences.set({ key, value: JSON.stringify(value) });
         } catch (e) {
             localStorage.setItem(key, JSON.stringify(value));
         }
     }
 };
 
-// ==================== 全局状态 ====================
-let appData = {
-    bookshelf: [],
-    sources: [],
-    currentBook: null
-};
+// 全局状态
+let bookshelf = [];
+let currentBook = null;
 
-// ==================== 初始化 ====================
+// 初始化
 document.addEventListener('DOMContentLoaded', async () => {
-    await initApp();
-    setupNavigation();
-    setupEventListeners();
-});
-
-async function initApp() {
     // 加载书架
-    appData.bookshelf = await Storage.get('bookshelf') || [];
+    bookshelf = await Storage.get('bookshelf') || [];
     renderBookshelf();
     
-    // 加载书源
+    // 初始化书源引擎
     try {
-        await bookSourceEngine.loadSources();
-        appData.sources = bookSourceEngine.sources;
-        showToast(`已加载 ${appData.sources.length} 个书源`);
+        await bookEngine.init();
+        showToast(`加载了 ${bookEngine.sources.length} 个书源`);
     } catch (e) {
-        console.error('书源加载失败:', e);
-        showToast('书源加载失败，使用默认书源');
+        showToast('书源加载失败');
     }
     
-    renderSources();
-}
+    // 绑定事件
+    setupEvents();
+});
 
-// ==================== 导航 ====================
-function setupNavigation() {
+function setupEvents() {
+    // 导航
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
-            const pageId = item.dataset.page;
-            switchPage(pageId);
+            const page = item.dataset.page;
+            switchPage(page);
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
             item.classList.add('active');
         });
     });
+    
+    // 搜索
+    const searchBtn = document.getElementById('search-btn');
+    const searchInput = document.getElementById('search-input');
+    
+    if (searchBtn) {
+        searchBtn.addEventListener('click', doSearch);
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') doSearch();
+        });
+    }
 }
 
 function switchPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-    document.getElementById(pageId).classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const page = document.getElementById(pageId);
+    if (page) page.classList.add('active');
 }
 
-function setupEventListeners() {
-    // 搜索按钮
-    document.getElementById('search-btn')?.addEventListener('click', searchBooks);
-    
-    // 回车搜索
-    document.getElementById('search-input')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchBooks();
-    });
-    
-    // 分类标签
-    document.querySelectorAll('.category-tag').forEach(tag => {
-        tag.addEventListener('click', () => {
-            document.getElementById('search-input').value = tag.textContent;
-            searchBooks();
-        });
-    });
-}
-
-// ==================== 书架 ====================
+// 渲染书架
 function renderBookshelf() {
     const grid = document.getElementById('bookshelf-grid');
     if (!grid) return;
     
-    if (appData.bookshelf.length === 0) {
+    if (bookshelf.length === 0) {
         grid.innerHTML = `
             <div class="empty-state" style="grid-column: 1/-1;">
                 <div style="font-size: 64px; margin-bottom: 20px;">📚</div>
@@ -107,230 +88,162 @@ function renderBookshelf() {
         return;
     }
     
-    grid.innerHTML = appData.bookshelf.map(book => `
-        <div class="book-card" onclick="openBook('${book.id}')">
-            <img src="${book.coverUrl || 'https://via.placeholder.com/150x200/4a90e2/ffffff?text=' + encodeURIComponent(book.name.slice(0,2))}" 
+    grid.innerHTML = bookshelf.map(book => `
+        <div class="book-card" onclick="readBook('${book.id}')">
+            <img src="${book.coverUrl || 'https://via.placeholder.com/150x200/4a90e2/ffffff?text=' + encodeURIComponent(book.name?.slice(0,2) || '书')}" 
                  class="book-cover" 
-                 alt="${book.name}">
-            <div class="book-title">${book.name}</div>
-            <div class="book-author">${book.author}</div>
-            <div class="book-progress">${book.latestChapter || '未读'}</div>
+                 onerror="this.src='https://via.placeholder.com/150x200/4a90e2/ffffff?text=书'">
+            <div class="book-title">${book.name || '未知书名'}</div>
+            <div class="book-author">${book.author || '未知作者'}</div>
         </div>
     `).join('');
 }
 
-// ==================== 搜索 ====================
-async function searchBooks() {
-    const keyword = document.getElementById('search-input').value.trim();
+// 搜索
+async function doSearch() {
+    const input = document.getElementById('search-input');
+    const keyword = input?.value?.trim();
+    
     if (!keyword) {
-        showToast('请输入搜索关键词');
+        showToast('请输入书名或作者');
         return;
     }
     
-    showToast('搜索中...');
     const grid = document.getElementById('discover-grid');
-    grid.innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+    if (!grid) return;
+    
+    grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><div class="loading-spinner"></div><p>搜索中...</p></div>';
     
     try {
-        const results = await bookSourceEngine.search(keyword);
+        const results = await bookEngine.search(keyword);
         
         if (results.length === 0) {
             grid.innerHTML = `
                 <div class="empty-state" style="grid-column: 1/-1;">
                     <p>未找到相关书籍</p>
+                    <p style="font-size: 14px; margin-top: 10px;">换个关键词试试</p>
                 </div>
             `;
             return;
         }
         
         grid.innerHTML = results.map(book => `
-            <div class="book-card" onclick='addToBookshelf(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
-                <img src="${book.coverUrl || 'https://via.placeholder.com/150x200/4a90e2/ffffff?text=' + encodeURIComponent(book.name.slice(0,2))}" 
-                     class="book-cover" 
-                     alt="${book.name}">
-                <div class="book-title">${book.name}</div>
-                <div class="book-author">${book.author}</div>
-                <div class="book-progress" style="color: #27ae60;">来源: ${book.sourceName}</div>
+            <div class="book-card" onclick='addBook(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
+                <img src="${book.coverUrl || 'https://via.placeholder.com/150x200/4a90e2/ffffff?text=' + encodeURIComponent(book.name?.slice(0,2) || '书')}" 
+                     class="book-cover"
+                     onerror="this.src='https://via.placeholder.com/150x200/4a90e2/ffffff?text=书'">
+                <div class="book-title">${book.name || '未知书名'}</div>
+                <div class="book-author">${book.author || '未知作者'}</div>
+                <div class="book-progress" style="color: #27ae60;">${book.sourceName || '网络'}</div>
             </div>
         `).join('');
         
         showToast(`找到 ${results.length} 本书`);
     } catch (e) {
         console.error('搜索失败:', e);
-        showToast('搜索失败: ' + e.message);
         grid.innerHTML = `
             <div class="empty-state" style="grid-column: 1/-1;">
                 <p>搜索失败</p>
+                <p style="font-size: 14px; margin-top: 10px;">${e.message}</p>
             </div>
         `;
     }
 }
 
-// ==================== 书籍操作 ====================
-async function addToBookshelf(book) {
+// 添加书籍到书架
+async function addBook(book) {
     // 检查是否已存在
-    const exists = appData.bookshelf.find(b => b.name === book.name && b.author === book.author);
+    const exists = bookshelf.find(b => b.name === book.name && b.author === book.author);
     if (exists) {
-        showToast('书籍已在书架中');
-        openBook(exists.id);
+        showToast('已在书架中');
+        readBook(exists.id);
         return;
     }
     
-    // 生成ID
-    book.id = Date.now().toString(36) + Math.random().toString(36).substr(2);
-    book.lastChapterIndex = 0;
-    book.lastPage = 0;
+    // 创建书籍对象
+    const newBook = {
+        id: Date.now().toString(36),
+        name: book.name,
+        author: book.author,
+        coverUrl: book.coverUrl,
+        intro: book.intro,
+        bookUrl: book.bookUrl,
+        source: book.source,
+        sourceName: book.sourceName,
+        lastChapter: 0,
+        lastPage: 0,
+        chapters: []
+    };
     
-    appData.bookshelf.push(book);
-    await Storage.set('bookshelf', appData.bookshelf);
+    bookshelf.push(newBook);
+    await Storage.set('bookshelf', bookshelf);
     
     renderBookshelf();
-    showToast(`《${book.name}》已添加到书架`);
+    showToast(`《${newBook.name}》已加入书架`);
     
-    // 打开书籍
-    openBook(book.id);
+    // 自动打开
+    readBook(newBook.id);
 }
 
-async function openBook(bookId) {
-    const book = appData.bookshelf.find(b => b.id === bookId);
+// 阅读书籍
+async function readBook(bookId) {
+    const book = bookshelf.find(b => b.id === bookId);
     if (!book) return;
     
-    appData.currentBook = book;
+    currentBook = book;
     showToast('加载中...');
     
     try {
         // 获取章节列表
-        let chapters = book.chapters;
-        if (!chapters || chapters.length === 0) {
-            chapters = await bookSourceEngine.getChapterList(book);
+        if (!book.chapters || book.chapters.length === 0) {
+            const chapters = await bookEngine.getChapters(book);
             book.chapters = chapters;
-            await Storage.set('bookshelf', appData.bookshelf);
+            await Storage.set('bookshelf', bookshelf);
         }
         
         // 打开阅读器
-        reader.openBook(book, chapters);
+        reader.openBook(book, book.chapters);
     } catch (e) {
-        console.error('打开书籍失败:', e);
+        console.error('打开失败:', e);
         showToast('加载失败: ' + e.message);
     }
 }
 
-// ==================== 书源管理 ====================
-function renderSources() {
-    const list = document.getElementById('source-list');
-    if (!list) return;
-    
-    if (appData.sources.length === 0) {
-        list.innerHTML = `
-            <div class="empty-state">
-                <p>暂无书源</p>
-            </div>
-        `;
-        return;
-    }
-    
-    list.innerHTML = `
-        <div style="background: var(--bg-card); border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-            <p style="color: var(--text-secondary); font-size: 14px;">
-                共 ${appData.sources.length} 个书源
-            </p>
-        </div>
-    ` + appData.sources.slice(0, 50).map((source, idx) => `
-        <div class="source-item">
-            <div class="source-info">
-                <h3>${source.bookSourceName || '未命名'}</h3>
-                <p>${source.bookSourceUrl}</p>
-            </div>
-            <div class="source-toggle active"></div>
-        </div>
-    `).join('');
-}
-
-// ==================== 工具函数 ====================
-function showToast(message) {
+// Toast提示
+function showToast(msg) {
     const toast = document.getElementById('toast');
     if (!toast) return;
     
-    toast.textContent = message;
+    toast.textContent = msg;
     toast.classList.add('show');
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 2000);
+    setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
-// 保存阅读进度
-window.saveBookProgress = async function(book) {
-    const idx = appData.bookshelf.findIndex(b => b.id === book.id);
-    if (idx >= 0) {
-        appData.bookshelf[idx] = { ...appData.bookshelf[idx], ...book };
-        await Storage.set('bookshelf', appData.bookshelf);
-    }
-};
-
-// 返回书架
-window.showBookshelf = function() {
-    switchPage('bookshelf-page');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.querySelector('[data-page="bookshelf-page"]').classList.add('active');
-    renderBookshelf();
-};
-
-// ==================== 设置功能 ====================
+// 设置功能
 function showReadingSettings() {
-    showToast('阅读设置请在阅读界面中点击屏幕中间打开');
+    showToast('请在阅读界面点击中间打开设置');
 }
 
 function clearCache() {
-    if (confirm('确定要清理缓存吗？这将清除所有已下载的章节内容。')) {
-        appData.bookshelf.forEach(book => {
-            if (book.chapters) {
-                book.chapters.forEach(ch => {
-                    ch.content = null;
-                });
+    if (confirm('确定清理缓存？')) {
+        bookshelf.forEach(b => {
+            if (b.chapters) {
+                b.chapters.forEach(c => c.content = null);
             }
         });
-        Storage.set('bookshelf', appData.bookshelf);
+        Storage.set('bookshelf', bookshelf);
         showToast('缓存已清理');
     }
 }
 
-// 阅读器设置（兼容旧版）
-function showReaderSettings() {
-    reader.showMenu();
-}
-
-function hideReaderSettings() {
-    reader.hideMenu();
-}
-
-function changeFontSize(delta) {
-    reader.changeFontSize(delta);
-}
-
-function changeBg(bg) {
-    reader.changeBackground(bg);
-}
-
-function changeFlip(flip) {
-    reader.changeFlipMode(flip);
-}
-
-function closeReader() {
-    reader.close();
-}
-
-function toggleChapterList() {
-    const panel = document.getElementById('chapter-panel');
-    if (panel) {
-        panel.classList.toggle('active');
-    }
-}
-
-function prevChapter() {
-    reader.prevPage();
-}
-
-function nextChapter() {
-    reader.nextPage();
+// 兼容函数
+function closeReader() { reader.close(); }
+function showReaderSettings() { reader.showMenu(); }
+function hideReaderSettings() { reader.hideMenu(); }
+function changeFontSize(d) { reader.changeFontSize(d); }
+function changeBg(bg) { reader.changeBackground(bg); }
+function changeFlip(f) { reader.changeFlipMode(f); }
+function toggleChapterList() { 
+    const panel = document.querySelector('.chapter-panel');
+    if (panel) panel.classList.toggle('active');
 }
