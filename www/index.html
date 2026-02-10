@@ -580,45 +580,137 @@
         </div>
     </div>
     
-    <!-- 我的页面 -->
+    <!-- 我的页面 - 参考Legado完整设置 -->
     <div class="page" id="settings-page">
         <div class="header-bar">
             <span class="header-title">我的</span>
+            <div class="header-actions">
+                <span class="header-icon" onclick="showSettingsMore()">⋮</span>
+            </div>
         </div>
         
+        <!-- 主题设置 -->
         <div class="settings-group">
+            <div class="settings-item" onclick="showThemeSettings()">
+                <span class="settings-icon">🎨</span>
+                <div class="settings-content">
+                    <div class="settings-label">主题模式</div>
+                    <div class="settings-desc">跟随系统 / 浅色 / 深色</div>
+                </div>
+                <span class="settings-value" id="theme-value">跟随系统</span>
+                <span class="settings-arrow">›</span>
+            </div>
             <div class="settings-item" onclick="showReadingSettings()">
                 <span class="settings-icon">📖</span>
                 <div class="settings-content">
                     <div class="settings-label">阅读设置</div>
-                    <div class="settings-desc">字体、背景、翻页效果</div>
+                    <div class="settings-desc">字体、背景、翻页效果、行间距</div>
                 </div>
                 <span class="settings-arrow">›</span>
             </div>
-            <div class="settings-item" onclick="showBookSourceSettings()">
-                <span class="settings-icon">🔌</span>
+            <div class="settings-item" onclick="showTextReplace()">
+                <span class="settings-icon">📝</span>
                 <div class="settings-content">
-                    <div class="settings-label">书源管理</div>
-                    <div class="settings-desc">管理书源和订阅</div>
+                    <div class="settings-label">替换净化</div>
+                    <div class="settings-desc">去除广告、自定义替换规则</div>
                 </div>
                 <span class="settings-arrow">›</span>
             </div>
         </div>
         
+        <!-- 书源与订阅 -->
         <div class="settings-group">
+            <div class="settings-item" onclick="showBookSourceSettings()">
+                <span class="settings-icon">🔌</span>
+                <div class="settings-content">
+                    <div class="settings-label">书源管理</div>
+                    <div class="settings-desc">书源订阅、导入、编辑、调试</div>
+                </div>
+                <span class="settings-value" id="source-count">0个</span>
+                <span class="settings-arrow">›</span>
+            </div>
+            <div class="settings-item" onclick="showRssSource()">
+                <span class="settings-icon">📰</span>
+                <div class="settings-content">
+                    <div class="settings-label">订阅源管理</div>
+                    <div class="settings-desc">RSS订阅、资讯源</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
+            <div class="settings-item" onclick="showDictRule()">
+                <span class="settings-icon">📚</span>
+                <div class="settings-content">
+                    <div class="settings-label">字典管理</div>
+                    <div class="settings-desc">自定义字典、拼音转换</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
+        </div>
+        
+        <!-- 数据与备份 -->
+        <div class="settings-group">
+            <div class="settings-item" onclick="showBackupRestore()">
+                <span class="settings-icon">💾</span>
+                <div class="settings-content">
+                    <div class="settings-label">备份与恢复</div>
+                    <div class="settings-desc">WebDav备份、本地备份、自动备份</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
+            <div class="settings-item" onclick="showCacheManage()">
+                <span class="settings-icon">�</span>
+                <div class="settings-content">
+                    <div class="settings-label">缓存管理</div>
+                    <div class="settings-desc">书籍缓存、章节缓存、图片缓存</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
             <div class="settings-item" onclick="clearCache()">
-                <span class="settings-icon">🗑️</span>
+                <span class="settings-icon">�🗑️</span>
                 <div class="settings-content">
                     <div class="settings-label">清理缓存</div>
                     <div class="settings-desc">清除已下载的章节内容</div>
                 </div>
                 <span class="settings-arrow">›</span>
             </div>
-            <div class="settings-item">
+        </div>
+        
+        <!-- 其他设置 -->
+        <div class="settings-group">
+            <div class="settings-item" onclick="showWebService()">
+                <span class="settings-icon">🌐</span>
+                <div class="settings-content">
+                    <div class="settings-label">Web服务</div>
+                    <div class="settings-desc">局域网书架访问、书源编辑</div>
+                </div>
+                <span class="settings-value" id="web-service-status">已关闭</span>
+                <span class="settings-arrow">›</span>
+            </div>
+            <div class="settings-item" onclick="showCheckUpdate()">
+                <span class="settings-icon">⬆️</span>
+                <div class="settings-content">
+                    <div class="settings-label">检查更新</div>
+                    <div class="settings-desc">检查书源更新、APP更新</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
+        </div>
+        
+        <!-- 关于 -->
+        <div class="settings-group">
+            <div class="settings-item" onclick="showAbout()">
                 <span class="settings-icon">ℹ️</span>
                 <div class="settings-content">
                     <div class="settings-label">关于</div>
-                    <div class="settings-desc">佩宇Reader v2.0.1</div>
+                    <div class="settings-desc">佩宇Reader v2.0.3</div>
+                </div>
+                <span class="settings-arrow">›</span>
+            </div>
+            <div class="settings-item" onclick="showReadRecord()">
+                <span class="settings-icon">📊</span>
+                <div class="settings-content">
+                    <div class="settings-label">阅读记录</div>
+                    <div class="settings-desc">阅读时长统计、书籍统计</div>
                 </div>
                 <span class="settings-arrow">›</span>
             </div>

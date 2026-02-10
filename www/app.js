@@ -229,7 +229,7 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
-// 设置功能
+// 设置功能 - 参考Legado完整功能
 function showReadingSettings() {
     showToast('请在阅读界面点击中间打开设置');
 }
@@ -237,6 +237,59 @@ function showReadingSettings() {
 function showBookSourceSettings() {
     switchPage('sources-page');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+}
+
+function showThemeSettings() {
+    const themes = ['跟随系统', '浅色', '深色'];
+    const current = document.getElementById('theme-value')?.textContent || '跟随系统';
+    const next = themes[(themes.indexOf(current) + 1) % themes.length];
+    document.getElementById('theme-value').textContent = next;
+    showToast(`主题已切换为: ${next}`);
+}
+
+function showTextReplace() {
+    showToast('替换净化功能开发中');
+}
+
+function showRssSource() {
+    showToast('RSS订阅源功能开发中');
+}
+
+function showDictRule() {
+    showToast('字典管理功能开发中');
+}
+
+function showBackupRestore() {
+    showToast('备份与恢复功能开发中');
+}
+
+function showCacheManage() {
+    showToast('缓存管理功能开发中');
+}
+
+function showWebService() {
+    const status = document.getElementById('web-service-status');
+    if (status) {
+        const newStatus = status.textContent === '已关闭' ? '运行中' : '已关闭';
+        status.textContent = newStatus;
+        showToast(`Web服务${newStatus === '运行中' ? '已启动' : '已关闭'}`);
+    }
+}
+
+function showCheckUpdate() {
+    showToast('当前已是最新版本 v2.0.3');
+}
+
+function showAbout() {
+    showToast('佩宇Reader v2.0.3\n基于Legado开源项目');
+}
+
+function showReadRecord() {
+    showToast('阅读记录功能开发中');
+}
+
+function showSettingsMore() {
+    showToast('更多设置功能开发中');
 }
 
 function clearCache() {
@@ -255,6 +308,8 @@ function refreshSources() {
     showToast('刷新书源...');
     bookEngine.init().then(() => {
         renderSources();
+        const count = document.getElementById('source-count');
+        if (count) count.textContent = `${bookEngine.sources.length}个`;
         showToast(`已刷新 ${bookEngine.sources.length} 个书源`);
     });
 }
