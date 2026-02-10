@@ -256,9 +256,13 @@ function handleBookLongPress(event, bookId) {
 }
 
 // 显示书籍选项菜单
+let currentOptionsBookId = null;
+
 function showBookOptions(bookId) {
     const book = bookshelf.find(b => b.id === bookId);
     if (!book) return;
+    
+    currentOptionsBookId = bookId;
     
     const overlay = document.createElement('div');
     overlay.className = 'overlay active';
@@ -279,30 +283,53 @@ function showBookOptions(bookId) {
     `;
     menu.innerHTML = `
         <div style="text-align: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--divider);">
-            <div style="font-weight: 600; font-size: 16px;">${book.name}</div>
-            <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">${book.author}</div>
+            <div style="font-weight: 600; font-size: 16px;">${(book.name || '未知书名').replace(/</g, '&lt;')}</div>
+            <div style="font-size: 12px; color: var(--text-tertiary); margin-top: 4px;">${book.author || '未知作者'}</div>
         </div>
-        <div class="book-option-item" onclick="readBook('${bookId}'); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
+        <div class="book-option-item" id="opt-read" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <span>📖</span> <span>阅读</span>
         </div>
-        <div class="book-option-item" onclick="showBookDetail(${JSON.stringify(book).replace(/'/g, "&#39;")}); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
+        <div class="book-option-item" id="opt-detail" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <span>ℹ️</span> <span>书籍详情</span>
         </div>
-        <div class="book-option-item" onclick="moveBookToTop('${bookId}'); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
+        <div class="book-option-item" id="opt-top" style="padding: 16px; border-bottom: 1px solid var(--divider); cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <span>⬆️</span> <span>置顶</span>
         </div>
-        <div class="book-option-item" onclick="deleteBook('${bookId}'); this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; color: #ff5252; cursor: pointer; display: flex; align-items: center; gap: 12px;">
+        <div class="book-option-item" id="opt-delete" style="padding: 16px; color: #ff5252; cursor: pointer; display: flex; align-items: center; gap: 12px;">
             <span>🗑️</span> <span>删除</span>
         </div>
-        <div class="book-option-item" onclick="this.parentElement.remove(); document.querySelector('.overlay').remove();" style="padding: 16px; text-align: center; color: var(--text-tertiary); cursor: pointer; margin-top: 8px; border-top: 1px solid var(--divider);">
+        <div class="book-option-item" id="opt-cancel" style="padding: 16px; text-align: center; color: var(--text-tertiary); cursor: pointer; margin-top: 8px; border-top: 1px solid var(--divider);">
             取消
         </div>
     `;
     
-    overlay.onclick = () => {
+    // 绑定事件
+    menu.querySelector('#opt-read').onclick = () => {
+        readBook(currentOptionsBookId);
+        closeMenu();
+    };
+    menu.querySelector('#opt-detail').onclick = () => {
+        const b = bookshelf.find(bk => bk.id === currentOptionsBookId);
+        if (b) showBookDetail(b);
+        closeMenu();
+    };
+    menu.querySelector('#opt-top').onclick = () => {
+        moveBookToTop(currentOptionsBookId);
+        closeMenu();
+    };
+    menu.querySelector('#opt-delete').onclick = () => {
+        deleteBook(currentOptionsBookId);
+        closeMenu();
+    };
+    menu.querySelector('#opt-cancel').onclick = closeMenu;
+    
+    function closeMenu() {
         overlay.remove();
         menu.remove();
-    };
+        currentOptionsBookId = null;
+    }
+    
+    overlay.onclick = closeMenu;
     
     document.body.appendChild(overlay);
     document.body.appendChild(menu);
@@ -1324,6 +1351,17 @@ async function readBook(bookId) {
     currentBook = book;
     
     try {
+        // 本地书籍直接打开
+        if (book.isLocal) {
+            if (book.chapters && book.chapters.length > 0) {
+                reader.openBook(book, book.chapters);
+            } else {
+                showToast('书籍内容为空');
+            }
+            return;
+        }
+        
+        // 网络书籍需要获取章节
         if (!book.chapters || book.chapters.length === 0) {
             showToast('加载章节...');
             const chapters = await bookEngine.getChapters(book);
@@ -1331,7 +1369,11 @@ async function readBook(bookId) {
             await Storage.set('bookshelf', bookshelf);
         }
         
-        reader.openBook(book, book.chapters);
+        if (book.chapters && book.chapters.length > 0) {
+            reader.openBook(book, book.chapters);
+        } else {
+            showToast('无法获取章节，请检查书源');
+        }
     } catch (e) {
         console.error('打开失败:', e);
         showToast('加载失败: ' + e.message);
