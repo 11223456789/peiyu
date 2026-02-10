@@ -57,42 +57,55 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function initApp() {
     // 加载数据
     const bookshelf = await Storage.get('bookshelf') || [];
-    const sources = await Storage.get('sources') || [];
     const readingSettings = await Storage.get('readingSettings');
     
     appData.bookshelf = bookshelf;
-    appData.sources = sources;
     if (readingSettings) {
         appData.readingSettings = readingSettings;
     }
     
-    // 如果没有书源，加载默认书源
-    if (appData.sources.length === 0) {
-        await loadDefaultSources();
-    }
+    // 始终加载内置书源（强制刷新）
+    await loadDefaultSources();
     
     // 渲染页面
     renderBookshelf();
     renderSources();
     applyReadingSettings();
     
-    showToast('佩宇Reader 已启动');
+    showToast(`佩宇Reader 已启动，加载了 ${appData.sources.length} 个书源`);
 }
 
 async function loadDefaultSources() {
     // 加载内置书源
     try {
+        console.log('开始加载书源...');
         const response = await fetch('book_sources.json');
+        console.log('书源文件响应:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
         const sources = await response.json();
+        console.log('解析书源数量:', sources.length);
+        
         // 加载全部书源
         appData.sources = sources.map(s => ({
             ...s,
             enabled: true
         }));
+        
         await Storage.set('sources', appData.sources);
         console.log(`已加载 ${appData.sources.length} 个书源`);
+        
+        // 显示书源名称示例
+        if (appData.sources.length > 0) {
+            console.log('前5个书源:', appData.sources.slice(0, 5).map(s => s.bookSourceName));
+        }
     } catch (e) {
         console.error('加载内置书源失败:', e);
+        showToast('书源加载失败: ' + e.message);
+        
         // 备用默认书源
         appData.sources = [
             {
