@@ -915,7 +915,7 @@ async function importFromJson() {
     }
 }
 
-// 处理导入文件
+// 处理导入文件 - Legado格式支持
 async function handleImportFile(input) {
     const file = input.files[0];
     if (!file) {
@@ -929,7 +929,6 @@ async function handleImportFile(input) {
     try {
         const text = await file.text();
         console.log('[导入] 文件内容长度:', text.length);
-        console.log('[导入] 内容前200字符:', text.substring(0, 200));
         
         if (!text.trim()) {
             showToast('文件为空');
@@ -940,75 +939,103 @@ async function handleImportFile(input) {
         let data;
         try {
             data = JSON.parse(text);
-            console.log('[导入] JSON解析成功，类型:', typeof data, '是否为数组:', Array.isArray(data));
         } catch (parseError) {
             console.error('[导入] JSON解析失败:', parseError);
-            showToast('❌ JSON格式错误，请检查文件内容');
+            showToast('❌ JSON格式错误');
             return;
         }
         
-        let sources = [];
+        // 解析书源数据
+        const sources = parseBookSources(data);
         
-        // 处理不同格式的数据
-        if (Array.isArray(data)) {
-            sources = data;
-            console.log('[导入] 数组格式，长度:', data.length);
-        } else if (data && typeof data === 'object') {
-            // 检查是否是单个书源对象
-            if (data.bookSourceName || data.bookSourceUrl || data.ruleSearch) {
-                sources = [data];
-                console.log('[导入] 单个书源对象');
-            } else {
-                console.error('[导入] 无效的书源格式，对象键:', Object.keys(data));
-                showToast('❌ 无效的书源格式');
-                return;
-            }
-        } else {
-            showToast('❌ 无效的书源格式');
+        if (sources.length === 0) {
+            showToast('❌ 未找到有效的书源');
             return;
         }
-        
-        // 验证书源 - 更宽松的验证
-        const validSources = sources.filter(s => {
-            const isValid = s && typeof s === 'object' && (s.bookSourceName || s.bookSourceUrl || s.ruleSearch);
-            if (!isValid) {
-                console.log('[导入] 跳过无效书源:', s);
-            }
-            return isValid;
-        });
-        
-        console.log('[导入] 有效书源数:', validSources.length);
-        
-        if (validSources.length === 0) {
-            showToast('❌ 未找到有效的书源，请检查文件格式');
-            return;
-        }
-        
-        // 确保每个书源有必要的字段
-        validSources.forEach((s, i) => {
-            if (!s.bookSourceName) s.bookSourceName = `书源${i + 1}`;
-            if (!s.bookSourceUrl) s.bookSourceUrl = '';
-            s.enabled = true;
-        });
         
         // 添加到书源列表
-        bookEngine.sources.push(...validSources);
-        
-        // 保存到存储
+        bookEngine.sources.push(...sources);
         await Storage.set('custom_sources', bookEngine.sources);
-        console.log('[导入] 已保存，当前书源总数:', bookEngine.sources.length);
         
-        // 刷新显示
         renderSources();
         hideImportSource();
         input.value = '';
         
-        showToast(`✅ 成功导入 ${validSources.length} 个书源`);
+        showToast(`✅ 成功导入 ${sources.length} 个书源`);
         
     } catch (e) {
         console.error('[导入] 失败:', e);
         showToast('❌ 导入失败: ' + e.message);
     }
+}
+
+// 解析书源数据 - 支持多种格式
+function parseBookSources(data) {
+    const sources = [];
+    
+    // 处理数组格式
+    if (Array.isArray(data)) {
+        data.forEach((item, index) => {
+            const source = normalizeBookSource(item, index);
+            if (source) sources.push(source);
+        });
+    } 
+    // 处理单个对象
+    else if (data && typeof data === 'object') {
+        const source = normalizeBookSource(data, 0);
+        if (source) sources.push(source);
+    }
+    
+    return sources;
+}
+
+// 标准化书源对象
+function normalizeBookSource(data, index) {
+    if (!data || typeof data !== 'object') return null;
+    
+    // 检查是否是有效的书源
+    const hasBookSourceUrl = data.bookSourceUrl || data.url || data.sourceUrl;
+    const hasBookSourceName = data.bookSourceName || data.sourceName || data.name;
+    const hasRuleSearch = data.ruleSearch || data.searchRule;
+    
+    if (!hasBookSourceUrl && !hasRuleSearch) {
+        console.log('[导入] 跳过无效书源:', data);
+        return null;
+    }
+    
+    // 标准化书源字段
+    const source = {
+        bookSourceName: hasBookSourceName || `书源${index + 1}`,
+        bookSourceUrl: data.bookSourceUrl || data.url || data.sourceUrl || '',
+        bookSourceType: data.bookSourceType || 0,
+        bookSourceGroup: data.bookSourceGroup || '',
+        bookSourceComment: data.bookSourceComment || '',
+        enabled: true,
+        enabledExplore: data.enabledExplore !== false,
+        
+        // 搜索规则
+        ruleSearch: data.ruleSearch || data.searchRule || null,
+        searchUrl: data.searchUrl || '',
+        
+        // 目录规则
+        ruleToc: data.ruleToc || data.tocRule || null,
+        
+        // 内容规则
+        ruleContent: data.ruleContent || data.contentRule || null,
+        
+        // 详情规则
+        ruleBookInfo: data.ruleBookInfo || data.bookInfoRule || null,
+        
+        // 发现规则
+        ruleExplore: data.ruleExplore || data.exploreRule || null,
+        
+        // 其他字段
+        header: data.header || '',
+        weight: data.weight || 0,
+        customOrder: data.customOrder || 0
+    };
+    
+    return source;
 }
 
 // 删除书源

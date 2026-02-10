@@ -530,7 +530,12 @@ class BookReader {
         
         // 获取章节内容
         let content = chapter.content;
-        if (!content && chapter.url) {
+        
+        // 本地书籍直接显示已有内容
+        if (this.currentBook && this.currentBook.isLocal) {
+            content = content || '暂无内容';
+        } else if (!content && chapter.url) {
+            // 网络书籍需要获取内容
             content = await this.fetchChapterContent(chapter.url);
             chapter.content = content;
         }
