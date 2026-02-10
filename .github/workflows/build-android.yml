@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     
     steps:
     - name: Checkout repository
@@ -38,9 +38,18 @@ jobs:
         distribution: 'temurin'
         
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      env:
-        SKIP_JDK_VERSION_CHECK: true
+      run: |
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+        cd $ANDROID_SDK_ROOT/cmdline-tools
+        curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+        unzip -q cmdline-tools.zip
+        mv cmdline-tools latest
+        export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+        yes | sdkmanager --licenses || true
+        sdkmanager "platforms;android-33" "build-tools;33.0.0" "platform-tools"
+        echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+        echo "PATH=$PATH" >> $GITHUB_ENV
       
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
@@ -49,6 +58,8 @@ jobs:
       run: |
         cd android
         ./gradlew assembleDebug --stacktrace
+      env:
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
       
     - name: Upload APK
       uses: actions/upload-artifact@v4
