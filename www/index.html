@@ -451,7 +451,18 @@
     <!-- Toast提示 -->
     <div class="toast" id="toast"></div>
 
+    <!-- 阅读器容器 -->
+    <div id="reader-wrapper"></div>
+
     <script src="capacitor.js"></script>
     <script src="app.js"></script>
+    <script src="reader.js"></script>
+    <link rel="stylesheet" href="reader.css">
+    <script>
+        // 初始化阅读器
+        document.addEventListener('DOMContentLoaded', () => {
+            reader.init('reader-wrapper');
+        });
+    </script>
 </body>
 </html>

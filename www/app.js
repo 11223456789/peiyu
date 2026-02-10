@@ -302,10 +302,10 @@ async function openBook(bookId) {
     const book = appData.bookshelf.find(b => b.id === bookId);
     if (!book) return;
     
-    currentBook = book;
     showToast('加载章节...');
     
     // 获取章节列表
+    let chapters = [];
     if (book.chapters && book.chapters.length > 0) {
         chapters = book.chapters;
     } else {
@@ -314,13 +314,8 @@ async function openBook(bookId) {
         await Storage.set('bookshelf', appData.bookshelf);
     }
     
-    renderChapterList();
-    
-    // 加载上次阅读的章节
-    const lastChapter = Math.floor(book.progress / 100 * chapters.length) || 0;
-    loadChapter(lastChapter);
-    
-    document.getElementById('reader').classList.add('active');
+    // 使用新的阅读器打开书籍
+    reader.openBook(book, chapters);
 }
 
 async function fetchChapters(book) {
