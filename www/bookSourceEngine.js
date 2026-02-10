@@ -35,20 +35,34 @@ class BookSourceEngine {
             await this.loadSources();
         }
 
+        console.log(`[搜索] 关键词: ${keyword}, 可用书源: ${this.sources.length}`);
+
         const results = [];
-        const maxSources = Math.min(5, this.sources.length); // 最多用5个书源
+        const maxSources = Math.min(10, this.sources.length); // 最多用10个书源
+        let successCount = 0;
         
         for (let i = 0; i < maxSources; i++) {
             const source = this.sources[i];
             try {
-                console.log(`[搜索] 使用书源: ${source.bookSourceName}`);
+                console.log(`[搜索] [${i+1}/${maxSources}] 书源: ${source.bookSourceName}`);
+                console.log(`[搜索] 搜索URL: ${source.searchUrl}`);
+                console.log(`[搜索] 规则:`, source.ruleSearch);
+                
                 const books = await this.searchFromSource(source, keyword);
-                results.push(...books);
+                console.log(`[搜索] ${source.bookSourceName} 返回 ${books.length} 本书`);
+                
+                if (books.length > 0) {
+                    results.push(...books);
+                    successCount++;
+                    if (successCount >= 3) break; // 获取3个成功结果就停止
+                }
             } catch (e) {
                 console.error(`[搜索] ${source.bookSourceName} 失败:`, e.message);
+                console.error(`[搜索] 错误详情:`, e);
             }
         }
         
+        console.log(`[搜索] 总计找到 ${results.length} 本书`);
         return results;
     }
 
@@ -128,13 +142,46 @@ class BookSourceEngine {
     parseSearchResults(html, rule, source) {
         const books = [];
         
+        console.log(`[解析] bookList规则: ${rule.bookList}`);
+        
+        // 尝试解析为JSON
+        let json = null;
+        try {
+            json = JSON.parse(html);
+            console.log('[解析] 成功解析为JSON');
+        } catch (e) {
+            console.log('[解析] 不是JSON，按HTML处理');
+        }
+        
+        // 使用 JSONPath
+        if (json && rule.bookList && (rule.bookList.startsWith('$.') || rule.bookList.startsWith('@json:'))) {
+            try {
+                const path = rule.bookList.replace('@json:', '').replace('$.', '');
+                console.log(`[解析] JSONPath: ${path}`);
+                const list = this.getJsonPath(json, path);
+                console.log(`[解析] 获取到 ${list?.length || 0} 条数据`);
+                
+                if (Array.isArray(list)) {
+                    list.slice(0, 10).forEach((item, idx) => {
+                        console.log(`[解析] 处理第${idx+1}本书:`, item);
+                        const book = this.parseBookFromJson(item, rule, source);
+                        console.log(`[解析] 解析结果:`, book);
+                        if (book.name) {
+                            books.push(book);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('[JSON解析失败]', e);
+            }
+        }
         // 使用 XPath
-        if (rule.bookList && rule.bookList.startsWith('//')) {
+        else if (rule.bookList && rule.bookList.startsWith('//')) {
             const doc = this.parseHTML(html);
             const list = this.evaluateXPath(doc, rule.bookList);
             
             list.forEach((item, index) => {
-                if (index >= 10) return; // 最多10条
+                if (index >= 10) return;
                 
                 const book = {
                     name: this.getXPathValue(item, rule.name) || '未知书名',
@@ -166,25 +213,6 @@ class BookSourceEngine {
                     books.push(book);
                 }
             });
-        }
-        // 使用 JSONPath
-        else if (rule.bookList && (rule.bookList.startsWith('$.') || rule.bookList.startsWith('@json:'))) {
-            try {
-                const json = JSON.parse(html);
-                const path = rule.bookList.replace('@json:', '').replace('$.', '');
-                const list = this.getJsonPath(json, path);
-                
-                if (Array.isArray(list)) {
-                    list.slice(0, 10).forEach(item => {
-                        const book = this.parseBookFromJson(item, rule, source);
-                        if (book.name && book.bookUrl) {
-                            books.push(book);
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error('[JSON解析失败]', e);
-            }
         }
         
         return books;
@@ -407,20 +435,36 @@ class BookSourceEngine {
     parseBookFromJson(item, rule, source) {
         const getValue = (path) => {
             if (!path) return '';
-            const keys = path.replace('$.', '').split('.');
-            let value = item;
-            for (const key of keys) {
-                value = value?.[key];
+            
+            // 处理 {{}} 模板语法
+            if (path.includes('{{') && path.includes('}}')) {
+                return path.replace(/\{\{([^}]+)\}\}/g, (match, p1) => {
+                    const val = this.getJsonPath(item, p1.replace('$.', ''));
+                    return val || '';
+                });
             }
-            return value || '';
+            
+            // 普通路径
+            if (path.startsWith('$.') || path.includes('.')) {
+                const cleanPath = path.replace('$.', '');
+                return this.getJsonPath(item, cleanPath) || '';
+            }
+            
+            // 直接属性名
+            return item?.[path] || '';
         };
+
+        const bookUrl = getValue(rule.bookUrl);
+        const resolvedUrl = bookUrl.startsWith('http') ? bookUrl : 
+                           bookUrl.startsWith('/') ? source.bookSourceUrl + bookUrl :
+                           source.bookSourceUrl + '/' + bookUrl;
 
         return {
             name: getValue(rule.name),
             author: getValue(rule.author),
             coverUrl: this.resolveUrl(getValue(rule.coverUrl), source.bookSourceUrl),
             intro: getValue(rule.intro),
-            bookUrl: this.resolveUrl(getValue(rule.bookUrl), source.bookSourceUrl),
+            bookUrl: resolvedUrl,
             latestChapter: getValue(rule.lastChapter),
             sourceName: source.bookSourceName,
             source: source
@@ -469,20 +513,56 @@ class BookSourceEngine {
     }
 
     getJsonPath(obj, path) {
+        console.log(`[JSONPath] 解析路径: ${path}`, obj);
+        
+        // 处理 [*] 语法
+        if (path.includes('[*]')) {
+            const parts = path.split('[*]');
+            let value = obj;
+            
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i].replace(/^\./, '').replace(/\.$/, '');
+                if (part) {
+                    value = value?.[part];
+                }
+                
+                // 如果不是最后一部分，展开数组
+                if (i < parts.length - 1 && Array.isArray(value)) {
+                    // 继续处理下一层
+                    const nextPart = parts[i + 1].replace(/^\./, '');
+                    if (nextPart) {
+                        value = value.flatMap(item => item?.[nextPart] || []);
+                    }
+                }
+            }
+            
+            console.log(`[JSONPath] [*] 结果:`, value);
+            return value;
+        }
+        
+        // 普通路径
         const keys = path.split('.');
         let value = obj;
         
         for (const key of keys) {
             if (key.includes('[') && key.includes(']')) {
                 const arrName = key.split('[')[0];
-                const index = parseInt(key.match(/\[(\d+)\]/)[1]);
-                value = value?.[arrName]?.[index];
+                const indexMatch = key.match(/\[(\d+|\*)\]/);
+                if (indexMatch) {
+                    if (indexMatch[1] === '*') {
+                        value = value?.[arrName];
+                    } else {
+                        const index = parseInt(indexMatch[1]);
+                        value = value?.[arrName]?.[index];
+                    }
+                }
             } else {
                 value = value?.[key];
             }
             if (value === undefined) break;
         }
         
+        console.log(`[JSONPath] 结果:`, value);
         return value;
     }
 

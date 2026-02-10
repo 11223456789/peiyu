@@ -275,3 +275,62 @@ window.showBookshelf = function() {
     document.querySelector('[data-page="bookshelf-page"]').classList.add('active');
     renderBookshelf();
 };
+
+// ==================== 设置功能 ====================
+function showReadingSettings() {
+    showToast('阅读设置请在阅读界面中点击屏幕中间打开');
+}
+
+function clearCache() {
+    if (confirm('确定要清理缓存吗？这将清除所有已下载的章节内容。')) {
+        appData.bookshelf.forEach(book => {
+            if (book.chapters) {
+                book.chapters.forEach(ch => {
+                    ch.content = null;
+                });
+            }
+        });
+        Storage.set('bookshelf', appData.bookshelf);
+        showToast('缓存已清理');
+    }
+}
+
+// 阅读器设置（兼容旧版）
+function showReaderSettings() {
+    reader.showMenu();
+}
+
+function hideReaderSettings() {
+    reader.hideMenu();
+}
+
+function changeFontSize(delta) {
+    reader.changeFontSize(delta);
+}
+
+function changeBg(bg) {
+    reader.changeBackground(bg);
+}
+
+function changeFlip(flip) {
+    reader.changeFlipMode(flip);
+}
+
+function closeReader() {
+    reader.close();
+}
+
+function toggleChapterList() {
+    const panel = document.getElementById('chapter-panel');
+    if (panel) {
+        panel.classList.toggle('active');
+    }
+}
+
+function prevChapter() {
+    reader.prevPage();
+}
+
+function nextChapter() {
+    reader.nextPage();
+}
