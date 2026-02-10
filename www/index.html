@@ -1021,7 +1021,7 @@
             </div>
         </div>
         
-        <!-- 书源与备份 -->
+        <!-- 书源管理 -->
         <div class="settings-group">
             <div class="settings-item" onclick="showBookSourceSettings()">
                 <span class="settings-icon">🔌</span>
@@ -1032,11 +1032,11 @@
                 <span class="settings-value" id="source-count">0个</span>
                 <span class="settings-arrow">›</span>
             </div>
-            <div class="settings-item" onclick="showBackupRestore()">
-                <span class="settings-icon">💾</span>
+            <div class="settings-item" onclick="importLocalTxt()">
+                <span class="settings-icon">📄</span>
                 <div class="settings-content">
-                    <div class="settings-label">备份与恢复</div>
-                    <div class="settings-desc">WebDav备份、本地备份</div>
+                    <div class="settings-label">导入本地书籍</div>
+                    <div class="settings-desc">导入TXT文件到书架</div>
                 </div>
                 <span class="settings-arrow">›</span>
             </div>
@@ -1052,19 +1052,11 @@
         
         <!-- 关于 -->
         <div class="settings-group">
-            <div class="settings-item" onclick="showCheckUpdate()">
-                <span class="settings-icon">⬆️</span>
-                <div class="settings-content">
-                    <div class="settings-label">检查更新</div>
-                    <div class="settings-desc">检查APP更新</div>
-                </div>
-                <span class="settings-arrow">›</span>
-            </div>
             <div class="settings-item">
                 <span class="settings-icon">ℹ️</span>
                 <div class="settings-content">
                     <div class="settings-label">关于</div>
-                    <div class="settings-desc">佩宇书屋 v2.0.7</div>
+                    <div class="settings-desc">佩宇书屋 v2.0.8</div>
                 </div>
             </div>
         </div>

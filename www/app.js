@@ -167,46 +167,21 @@ function setupEvents() {
 }
 
 let currentPageId = 'bookshelf-page';
-let isSwitchingPage = false;
 
 function switchPage(pageId) {
-    if (isSwitchingPage || pageId === currentPageId) return;
+    if (pageId === currentPageId) return;
     
-    isSwitchingPage = true;
+    // 直接切换，不使用动画
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const page = document.getElementById(pageId);
+    if (page) page.classList.add('active');
     
-    // 隐藏当前页面
-    const currentPage = document.getElementById(currentPageId);
-    if (currentPage) {
-        currentPage.style.opacity = '0';
-        currentPage.style.transform = 'translateX(-20px)';
+    currentPageId = pageId;
+    
+    // 关闭编辑模式
+    if (pageId !== 'bookshelf-page') {
+        exitBookshelfEditMode();
     }
-    
-    // 延迟切换，等待动画
-    setTimeout(() => {
-        document.querySelectorAll('.page').forEach(p => {
-            p.classList.remove('active');
-            p.style.opacity = '';
-            p.style.transform = '';
-        });
-        
-        const newPage = document.getElementById(pageId);
-        if (newPage) {
-            newPage.classList.add('active');
-            newPage.style.opacity = '0';
-            newPage.style.transform = 'translateX(20px)';
-            
-            // 触发重绘
-            newPage.offsetHeight;
-            
-            // 显示新页面
-            newPage.style.transition = 'all 0.2s ease';
-            newPage.style.opacity = '1';
-            newPage.style.transform = 'translateX(0)';
-        }
-        
-        currentPageId = pageId;
-        isSwitchingPage = false;
-    }, 50);
 }
 
 // 渲染书架 - 列表布局
@@ -668,6 +643,142 @@ async function deleteAllSources() {
     showToast('已清空所有书源');
 }
 
+// 导入本地TXT文件
+function importLocalTxt() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        showToast('正在读取文件...');
+        
+        try {
+            // 读取文件内容
+            const text = await file.text();
+            console.log('[TXT导入] 文件大小:', file.size, '字符数:', text.length);
+            
+            // 生成书籍信息
+            const bookId = 'local_' + Date.now();
+            const bookName = file.name.replace('.txt', '');
+            
+            // 解析章节（简单按行分割）
+            const chapters = parseTxtChapters(text);
+            
+            // 创建书籍对象
+            const book = {
+                id: bookId,
+                name: bookName,
+                author: '本地导入',
+                coverUrl: '',
+                intro: `本地导入的TXT文件，共${chapters.length}章`,
+                bookUrl: 'local://' + bookId,
+                tocUrl: 'local://' + bookId,
+                sourceUrl: 'local',
+                sourceName: '本地文件',
+                latestChapter: chapters.length > 0 ? chapters[chapters.length - 1].title : '',
+                isLocal: true,
+                chapters: chapters,
+                lastChapter: 0,
+                lastReadTime: Date.now()
+            };
+            
+            // 保存到本地存储
+            await Storage.set('book_' + bookId, book);
+            
+            // 添加到书架
+            bookshelf.unshift(book);
+            await Storage.set('bookshelf', bookshelf);
+            
+            renderBookshelf();
+            showToast(`✅ 成功导入《${bookName}》`);
+            
+        } catch (err) {
+            console.error('[TXT导入] 失败:', err);
+            showToast('❌ 导入失败: ' + err.message);
+        }
+    };
+    input.click();
+}
+
+// 解析TXT章节
+function parseTxtChapters(text) {
+    const chapters = [];
+    const lines = text.split('\n');
+    
+    // 尝试按常见章节标题格式识别
+    const chapterRegex = /^(第[一二三四五六七八九十百千万亿\d]+章|第[\d]+章|Chapter[\s]*[\d]+|^[\d]+[、\.\s])/i;
+    
+    let currentChapter = null;
+    let chapterIndex = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (!line) continue;
+        
+        // 检查是否是章节标题
+        if (chapterRegex.test(line) || (line.length < 50 && (line.includes('章') || line.includes('节')))) {
+            // 保存上一章
+            if (currentChapter) {
+                chapters.push(currentChapter);
+            }
+            
+            // 创建新章节
+            currentChapter = {
+                index: chapterIndex++,
+                title: line.replace(/\s+/g, ' ').substring(0, 100),
+                content: '',
+                url: 'local://chapter_' + chapterIndex
+            };
+        } else if (currentChapter) {
+            // 添加到当前章节内容
+            currentChapter.content += line + '\n';
+        } else {
+            // 还没有章节，创建默认第一章
+            currentChapter = {
+                index: 0,
+                title: '正文',
+                content: line + '\n',
+                url: 'local://chapter_0'
+            };
+            chapterIndex = 1;
+        }
+    }
+    
+    // 保存最后一章
+    if (currentChapter) {
+        chapters.push(currentChapter);
+    }
+    
+    // 如果没有识别到章节，按固定长度分割
+    if (chapters.length === 0 || (chapters.length === 1 && chapters[0].title === '正文')) {
+        return splitByLength(text);
+    }
+    
+    return chapters;
+}
+
+// 按固定长度分割章节
+function splitByLength(text, charsPerChapter = 5000) {
+    const chapters = [];
+    let index = 0;
+    
+    for (let i = 0; i < text.length; i += charsPerChapter) {
+        const chunk = text.substring(i, i + charsPerChapter);
+        chapters.push({
+            index: index,
+            title: `第${index + 1}章`,
+            content: chunk,
+            url: 'local://chapter_' + index
+        });
+        index++;
+    }
+    
+    return chapters;
+}
+
 function loadMoreSources() {
     renderSources(sourceCurrentPage + 1, document.getElementById('source-search-input')?.value || '');
 }
@@ -785,65 +896,91 @@ async function handleImportFile(input) {
         return;
     }
     
-    console.log('[导入] 文件:', file.name, '大小:', file.size);
+    console.log('[导入] 文件:', file.name, '大小:', file.size, '类型:', file.type);
+    showToast('正在读取文件...');
     
     try {
         const text = await file.text();
         console.log('[导入] 文件内容长度:', text.length);
+        console.log('[导入] 内容前200字符:', text.substring(0, 200));
         
         if (!text.trim()) {
             showToast('文件为空');
             return;
         }
         
+        // 尝试解析JSON
         let data;
         try {
             data = JSON.parse(text);
+            console.log('[导入] JSON解析成功，类型:', typeof data, '是否为数组:', Array.isArray(data));
         } catch (parseError) {
             console.error('[导入] JSON解析失败:', parseError);
-            showToast('JSON格式错误，请检查文件内容');
+            showToast('❌ JSON格式错误，请检查文件内容');
             return;
         }
         
-        let imported = 0;
         let sources = [];
         
+        // 处理不同格式的数据
         if (Array.isArray(data)) {
             sources = data;
-            imported = data.length;
+            console.log('[导入] 数组格式，长度:', data.length);
         } else if (data && typeof data === 'object') {
-            // 可能是单个书源对象
-            if (data.bookSourceName || data.bookSourceUrl) {
+            // 检查是否是单个书源对象
+            if (data.bookSourceName || data.bookSourceUrl || data.ruleSearch) {
                 sources = [data];
-                imported = 1;
+                console.log('[导入] 单个书源对象');
             } else {
-                showToast('无效的书源格式');
+                console.error('[导入] 无效的书源格式，对象键:', Object.keys(data));
+                showToast('❌ 无效的书源格式');
                 return;
             }
         } else {
-            showToast('无效的书源格式');
+            showToast('❌ 无效的书源格式');
             return;
         }
         
-        // 验证书源
-        const validSources = sources.filter(s => s && (s.bookSourceName || s.bookSourceUrl));
+        // 验证书源 - 更宽松的验证
+        const validSources = sources.filter(s => {
+            const isValid = s && typeof s === 'object' && (s.bookSourceName || s.bookSourceUrl || s.ruleSearch);
+            if (!isValid) {
+                console.log('[导入] 跳过无效书源:', s);
+            }
+            return isValid;
+        });
+        
+        console.log('[导入] 有效书源数:', validSources.length);
+        
         if (validSources.length === 0) {
-            showToast('未找到有效的书源');
+            showToast('❌ 未找到有效的书源，请检查文件格式');
             return;
         }
+        
+        // 确保每个书源有必要的字段
+        validSources.forEach((s, i) => {
+            if (!s.bookSourceName) s.bookSourceName = `书源${i + 1}`;
+            if (!s.bookSourceUrl) s.bookSourceUrl = '';
+            s.enabled = true;
+        });
         
         // 添加到书源列表
         bookEngine.sources.push(...validSources);
-        await Storage.set('custom_sources', bookEngine.sources);
         
+        // 保存到存储
+        await Storage.set('custom_sources', bookEngine.sources);
+        console.log('[导入] 已保存，当前书源总数:', bookEngine.sources.length);
+        
+        // 刷新显示
         renderSources();
         hideImportSource();
         input.value = '';
-        showToast(`成功导入 ${validSources.length} 个书源`);
+        
+        showToast(`✅ 成功导入 ${validSources.length} 个书源`);
         
     } catch (e) {
         console.error('[导入] 失败:', e);
-        showToast('导入失败: ' + e.message);
+        showToast('❌ 导入失败: ' + e.message);
     }
 }
 
