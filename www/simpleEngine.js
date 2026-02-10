@@ -6,18 +6,29 @@ class SimpleBookEngine {
 
     async init() {
         try {
+            // 先加载内置书源
             const response = await fetch('book_sources.json');
             const allSources = await response.json();
             
-            // 只保留有搜索功能的书源
-            this.sources = allSources.filter(s => 
+            // 加载自定义书源
+            let customSources = [];
+            try {
+                const { value } = await Capacitor.Plugins.Preferences.get({ key: 'custom_sources' });
+                if (value) {
+                    customSources = JSON.parse(value);
+                }
+            } catch (e) {}
+            
+            // 合并书源（自定义优先）
+            const builtinSources = allSources.filter(s => 
                 s.bookSourceType === 0 && 
                 s.ruleSearch && 
-                s.searchUrl &&
-                s.enabled !== false
+                s.searchUrl
             );
             
-            console.log(`[引擎] 加载 ${this.sources.length} 个有效书源`);
+            this.sources = [...customSources, ...builtinSources];
+            
+            console.log(`[引擎] 加载 ${this.sources.length} 个书源（内置:${builtinSources.length} 自定义:${customSources.length}）`);
             return this.sources;
         } catch (e) {
             console.error('[引擎] 加载失败:', e);
@@ -25,23 +36,42 @@ class SimpleBookEngine {
         }
     }
 
-    // 搜索书籍 - 使用单个书源测试
+    // 搜索书籍 - 使用多个书源并行搜索
     async search(keyword, maxResults = 20) {
         const results = [];
+        const seen = new Set(); // 去重
         
-        // 优先使用简单的JSON API书源
-        const testSources = this.sources.slice(0, 3);
+        // 只使用已启用的书源
+        const enabledSources = this.sources.filter(s => s.enabled !== false);
+        console.log(`[搜索] 关键词: ${keyword}, 可用书源: ${enabledSources.length}个`);
         
-        for (const source of testSources) {
+        // 并行搜索前5个书源
+        const searchPromises = enabledSources.slice(0, 5).map(async (source, idx) => {
             try {
+                console.log(`[搜索] [${idx + 1}/5] 使用书源: ${source.bookSourceName}`);
                 const books = await this.searchWithSource(source, keyword);
-                results.push(...books);
-                if (results.length >= maxResults) break;
+                console.log(`[搜索] [${idx + 1}/5] ${source.bookSourceName} 返回 ${books.length} 本书`);
+                return books;
             } catch (e) {
-                console.log(`[搜索] ${source.bookSourceName} 失败`);
+                console.log(`[搜索] [${idx + 1}/5] ${source.bookSourceName} 失败: ${e.message}`);
+                return [];
+            }
+        });
+        
+        const allResults = await Promise.all(searchPromises);
+        
+        // 合并结果并去重
+        for (const books of allResults) {
+            for (const book of books) {
+                const key = `${book.name}-${book.author}`;
+                if (!seen.has(key) && book.name && book.author) {
+                    seen.add(key);
+                    results.push(book);
+                }
             }
         }
         
+        console.log(`[搜索] 总计找到 ${results.length} 本不重复书籍`);
         return results.slice(0, maxResults);
     }
 

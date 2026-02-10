@@ -496,6 +496,179 @@
             opacity: 1;
         }
         
+        /* 导入面板 */
+        .import-panel {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-white);
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+            z-index: 2002;
+            transition: bottom 0.3s ease;
+            max-height: 80vh;
+        }
+        .import-panel.active { bottom: 0; }
+        .import-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--divider);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .import-content { padding: 16px; }
+        .import-tabs {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--divider);
+        }
+        .import-tab {
+            padding: 8px 0;
+            font-size: 14px;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+        .import-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        .import-section { display: none; }
+        .import-section.active { display: block; }
+        .import-textarea {
+            width: 100%;
+            height: 150px;
+            border: 1px solid var(--divider);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 14px;
+            resize: none;
+            margin-bottom: 16px;
+        }
+        .import-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .import-btn:active { background: var(--primary-light); }
+        
+        /* 开关 */
+        .switch {
+            width: 48px;
+            height: 28px;
+            background: var(--divider);
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .switch.active { background: var(--primary); }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .switch.active::after { transform: translateX(20px); }
+        
+        /* 书籍详情页 */
+        .book-detail-content { padding: 16px; }
+        .book-detail-header {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .book-detail-cover {
+            width: 120px;
+            height: 160px;
+            border-radius: 8px;
+            object-fit: cover;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .book-detail-info { flex: 1; }
+        .book-detail-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.3;
+        }
+        .book-detail-author {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .book-detail-source {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            background: var(--bg-gray);
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .book-detail-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .book-detail-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: center;
+            border: none;
+        }
+        .book-detail-btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+        .book-detail-btn.secondary {
+            background: var(--bg-gray);
+            color: var(--text-primary);
+        }
+        .book-detail-section {
+            background: var(--bg-white);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .book-detail-section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        .book-detail-intro {
+            font-size: 14px;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        }
+        .book-detail-chapters {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .book-detail-chapter-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--divider);
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .book-detail-chapter-item:last-child { border-bottom: none; }
+        
         /* 加载动画 */
         .loading-spinner {
             width: 40px;
@@ -563,18 +736,78 @@
         </div>
     </div>
     
-    <!-- 书源页面 -->
+    <!-- 书源管理页面 -->
     <div class="page" id="sources-page">
         <div class="header-bar">
             <span class="header-title">书源管理</span>
             <div class="header-actions">
+                <span class="header-icon" onclick="showImportSource()">➕</span>
                 <span class="header-icon" onclick="refreshSources()">🔄</span>
             </div>
         </div>
-        <div class="settings-group" id="source-list">
+        
+        <!-- 书源统计 -->
+        <div class="category-section" style="margin-bottom: 0;">
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <div style="font-size: 24px; font-weight: 600; color: var(--primary);" id="total-sources">0</div>
+                    <div style="font-size: 12px; color: var(--text-tertiary);">总书源</div>
+                </div>
+                <div>
+                    <div style="font-size: 24px; font-weight: 600; color: #4caf50;" id="enabled-sources">0</div>
+                    <div style="font-size: 12px; color: var(--text-tertiary);">已启用</div>
+                </div>
+                <div>
+                    <div style="font-size: 24px; font-weight: 600; color: #ff5252;" id="disabled-sources">0</div>
+                    <div style="font-size: 12px; color: var(--text-tertiary);">已禁用</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 书源列表 -->
+        <div class="settings-group" id="source-list" style="margin-top: 8px;">
             <div class="settings-item">
                 <div class="settings-content">
                     <div class="settings-label">正在加载书源...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 书籍详情页 -->
+    <div class="page" id="book-detail-page">
+        <div class="header-bar">
+            <span class="header-icon" onclick="closeBookDetail()">←</span>
+            <span class="header-title">书籍详情</span>
+            <div class="header-actions">
+                <span class="header-icon" onclick="shareBook()">⋮</span>
+            </div>
+        </div>
+        <div class="book-detail-content" id="book-detail-content">
+            <!-- 动态填充 -->
+        </div>
+    </div>
+    
+    <!-- 导入书源弹窗 -->
+    <div class="overlay" id="import-overlay" onclick="hideImportSource()"></div>
+    <div class="import-panel" id="import-panel">
+        <div class="import-header">
+            <span class="header-title">导入书源</span>
+            <span class="header-icon" onclick="hideImportSource()">✕</span>
+        </div>
+        <div class="import-content">
+            <div class="import-tabs">
+                <div class="import-tab active" data-tab="url" onclick="switchImportTab('url')">网络导入</div>
+                <div class="import-tab" data-tab="json" onclick="switchImportTab('json')">本地导入</div>
+            </div>
+            <div class="import-body">
+                <div class="import-section active" id="import-url-section">
+                    <textarea class="import-textarea" id="import-url" placeholder="请输入书源URL，支持多个URL，每行一个"></textarea>
+                    <button class="import-btn" onclick="importFromUrl()">导入</button>
+                </div>
+                <div class="import-section" id="import-json-section">
+                    <textarea class="import-textarea" id="import-json" placeholder="请粘贴书源JSON内容"></textarea>
+                    <button class="import-btn" onclick="importFromJson()">导入</button>
                 </div>
             </div>
         </div>
