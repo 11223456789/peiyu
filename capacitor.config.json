@@ -1,6 +1,6 @@
 {
   "appId": "com.peiyu.reader",
-  "appName": "佩宇Reader",
+  "appName": "Peiyu Reader",
   "webDir": "www",
   "bundledWebRuntime": false,
   "plugins": {
