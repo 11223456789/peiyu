@@ -386,14 +386,63 @@ class SimpleBookEngine {
         this.chapterCache.clear();
         console.log('[章节] 缓存已清除');
     }
+    
+    // 简单正文提取（无规则时使用）
+    extractContentSimple(html) {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // 移除脚本和样式
+            doc.querySelectorAll('script, style, nav, header, footer').forEach(el => el.remove());
+            
+            // 查找最长的段落
+            let maxLength = 0;
+            let content = '';
+            
+            const paragraphs = doc.querySelectorAll('p, div, article');
+            paragraphs.forEach(p => {
+                const text = p.textContent.trim();
+                if (text.length > maxLength && text.length > 100) {
+                    maxLength = text.length;
+                    content = text;
+                }
+            });
+            
+            if (content) {
+                return content.split('\n').map(line => line.trim()).filter(line => line).join('\n\n');
+            }
+            
+            return '无法提取正文内容';
+        } catch (e) {
+            return '内容解析失败';
+        }
+    }
 
     // 获取章节内容
     async getContent(chapter, book) {
-        const source = book.source;
-        const html = await this.httpRequest(chapter.url);
-        const rule = source.ruleContent;
-        
-        if (!rule?.content) return '内容获取失败';
+        try {
+            const source = book.source || this.getSourceByUrl(book.sourceUrl);
+            if (!source) {
+                console.error('[内容] 未找到书源');
+                return '书源未找到，请检查书源配置';
+            }
+            
+            if (!chapter?.url) {
+                console.error('[内容] 无章节URL');
+                return '章节链接无效';
+            }
+            
+            const html = await this.httpRequest(chapter.url);
+            if (!html) {
+                return '内容获取失败，请检查网络连接';
+            }
+            
+            const rule = source.ruleContent;
+            if (!rule?.content) {
+                // 如果没有内容规则，尝试提取正文
+                return this.extractContentSimple(html);
+            }
 
         try {
             const data = JSON.parse(html);

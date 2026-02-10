@@ -440,6 +440,8 @@ function selectAllBooks() {
 let sourcePageSize = 50;
 let sourceCurrentPage = 0;
 let filteredSources = [];
+let sourceEditMode = false;
+let selectedSources = new Set();
 
 function renderSources(page = 0, filter = '') {
     const list = document.getElementById('source-list');
@@ -447,13 +449,11 @@ function renderSources(page = 0, filter = '') {
     
     // 更新统计
     const total = bookEngine.sources.length;
-    const enabled = bookEngine.sources.filter(s => s.enabled !== false).length;
-    const disabled = total - enabled;
     
     document.getElementById('total-sources').textContent = total;
-    document.getElementById('enabled-sources').textContent = enabled;
-    document.getElementById('disabled-sources').textContent = disabled;
-    document.getElementById('source-count').textContent = `${enabled}个`;
+    document.getElementById('enabled-sources').textContent = total;
+    document.getElementById('disabled-sources').textContent = 0;
+    document.getElementById('source-count').textContent = `${total}个`;
     
     if (total === 0) {
         list.innerHTML = `
@@ -462,6 +462,7 @@ function renderSources(page = 0, filter = '') {
                 <div class="empty-text">暂无书源<br>点击右上角 + 导入书源</div>
             </div>
         `;
+        updateSourceToolbar();
         return;
     }
     
@@ -482,18 +483,35 @@ function renderSources(page = 0, filter = '') {
     
     const html = pageSources.map((source, idx) => {
         const realIdx = bookEngine.sources.indexOf(source);
-        return `
-        <div class="settings-item" style="padding: 12px 16px;">
-            <div class="settings-content" style="flex: 1; min-width: 0;">
-                <div class="settings-label" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceName || '未命名'}</div>
-                <div class="settings-desc" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceUrl}</div>
+        const isSelected = selectedSources.has(realIdx);
+        
+        if (sourceEditMode) {
+            // 编辑模式：显示复选框
+            return `
+            <div class="settings-item ${isSelected ? 'selected' : ''}" style="padding: 12px 16px;" onclick="toggleSourceSelection(${realIdx})">
+                <div class="book-select-checkbox ${isSelected ? 'checked' : ''}" style="margin-right: 12px;"></div>
+                <div class="settings-content" style="flex: 1; min-width: 0;">
+                    <div class="settings-label" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceName || '未命名'}</div>
+                    <div class="settings-desc" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceUrl}</div>
+                </div>
             </div>
-            <button onclick="deleteSource(${realIdx})" 
-                    style="flex-shrink: 0; margin-left: 12px; padding: 6px 12px; background: #ff5252; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                删除
-            </button>
-        </div>
-    `}).join('');
+            `;
+        } else {
+            // 普通模式：显示删除按钮
+            return `
+            <div class="settings-item" style="padding: 12px 16px;">
+                <div class="settings-content" style="flex: 1; min-width: 0;">
+                    <div class="settings-label" style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceName || '未命名'}</div>
+                    <div class="settings-desc" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${source.bookSourceUrl}</div>
+                </div>
+                <button onclick="deleteSource(${realIdx})" 
+                        style="flex-shrink: 0; margin-left: 12px; padding: 6px 12px; background: #ff5252; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                    删除
+                </button>
+            </div>
+            `;
+        }
+    }).join('');
     
     // 添加加载更多按钮
     const loadMoreHtml = end < filteredSources.length ? `
@@ -503,14 +521,24 @@ function renderSources(page = 0, filter = '') {
     ` : '';
     
     if (page === 0) {
-        // 添加搜索框
+        // 添加搜索框和操作按钮
         const searchHtml = `
             <div style="padding: 12px 16px; background: var(--bg-white); border-bottom: 1px solid var(--divider);">
-                <div style="display: flex; gap: 8px; align-items: center; background: var(--bg-gray); border-radius: 20px; padding: 8px 12px;">
-                    <span>🔍</span>
-                    <input type="text" id="source-search-input" placeholder="搜索书源..." 
-                           style="flex: 1; border: none; background: transparent; font-size: 14px; outline: none;"
-                           oninput="searchSources(this.value)">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="flex: 1; display: flex; align-items: center; background: var(--bg-gray); border-radius: 20px; padding: 8px 12px;">
+                        <span>🔍</span>
+                        <input type="text" id="source-search-input" placeholder="搜索书源..." 
+                               style="flex: 1; border: none; background: transparent; font-size: 14px; outline: none; margin-left: 8px;"
+                               oninput="searchSources(this.value)">
+                    </div>
+                    ${!sourceEditMode ? `
+                    <button onclick="enterSourceEditMode()" style="padding: 8px 12px; background: var(--bg-gray); border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                        多选
+                    </button>
+                    <button onclick="deleteAllSources()" style="padding: 8px 12px; background: #ff5252; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                        清空
+                    </button>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -523,6 +551,121 @@ function renderSources(page = 0, filter = '') {
         }
         list.insertAdjacentHTML('beforeend', html + loadMoreHtml);
     }
+    
+    updateSourceToolbar();
+}
+
+// 进入书源编辑模式
+function enterSourceEditMode() {
+    sourceEditMode = true;
+    selectedSources.clear();
+    renderSources();
+}
+
+// 退出书源编辑模式
+function exitSourceEditMode() {
+    sourceEditMode = false;
+    selectedSources.clear();
+    renderSources();
+}
+
+// 切换书源选择
+function toggleSourceSelection(index) {
+    if (selectedSources.has(index)) {
+        selectedSources.delete(index);
+    } else {
+        selectedSources.add(index);
+    }
+    renderSources();
+}
+
+// 更新书源工具栏
+function updateSourceToolbar() {
+    let toolbar = document.getElementById('source-toolbar');
+    
+    if (sourceEditMode) {
+        if (!toolbar) {
+            toolbar = document.createElement('div');
+            toolbar.id = 'source-toolbar';
+            toolbar.style.cssText = `
+                position: fixed;
+                bottom: 60px;
+                left: 0;
+                right: 0;
+                background: var(--bg-white);
+                border-top: 1px solid var(--divider);
+                padding: 12px 16px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                z-index: 999;
+            `;
+            document.body.appendChild(toolbar);
+        }
+        
+        toolbar.innerHTML = `
+            <span style="color: var(--text-secondary); font-size: 14px;">已选择 ${selectedSources.size} 个</span>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="selectAllSources()" style="padding: 8px 16px; border: none; background: var(--bg-gray); border-radius: 4px; cursor: pointer;">全选</button>
+                <button onclick="deleteSelectedSources()" style="padding: 8px 16px; border: none; background: #ff5252; color: white; border-radius: 4px; cursor: pointer;">删除</button>
+                <button onclick="exitSourceEditMode()" style="padding: 8px 16px; border: none; background: var(--primary); color: white; border-radius: 4px; cursor: pointer;">完成</button>
+            </div>
+        `;
+        toolbar.style.display = 'flex';
+    } else {
+        if (toolbar) {
+            toolbar.style.display = 'none';
+        }
+    }
+}
+
+// 全选书源
+function selectAllSources() {
+    if (selectedSources.size === bookEngine.sources.length) {
+        selectedSources.clear();
+    } else {
+        selectedSources = new Set(bookEngine.sources.map((_, i) => i));
+    }
+    renderSources();
+}
+
+// 删除选中的书源
+async function deleteSelectedSources() {
+    if (selectedSources.size === 0) {
+        showToast('请先选择书源');
+        return;
+    }
+    
+    if (!confirm(`确定删除选中的 ${selectedSources.size} 个书源？`)) return;
+    
+    // 将索引转换为数组并排序（从大到小）
+    const indices = Array.from(selectedSources).sort((a, b) => b - a);
+    
+    // 删除书源
+    indices.forEach(index => {
+        bookEngine.sources.splice(index, 1);
+    });
+    
+    selectedSources.clear();
+    await Storage.set('custom_sources', bookEngine.sources);
+    exitSourceEditMode();
+    renderSources();
+    showToast('已删除');
+}
+
+// 删除所有书源
+async function deleteAllSources() {
+    if (bookEngine.sources.length === 0) {
+        showToast('书源列表为空');
+        return;
+    }
+    
+    if (!confirm(`确定删除全部 ${bookEngine.sources.length} 个书源？此操作不可恢复！`)) return;
+    
+    bookEngine.sources = [];
+    await Storage.set('custom_sources', []);
+    renderSources();
+    showToast('已清空所有书源');
 }
 
 function loadMoreSources() {
@@ -637,28 +780,70 @@ async function importFromJson() {
 // 处理导入文件
 async function handleImportFile(input) {
     const file = input.files[0];
-    if (!file) return;
+    if (!file) {
+        showToast('请选择文件');
+        return;
+    }
+    
+    console.log('[导入] 文件:', file.name, '大小:', file.size);
     
     try {
         const text = await file.text();
-        const data = JSON.parse(text);
+        console.log('[导入] 文件内容长度:', text.length);
         
-        let imported = 0;
-        if (Array.isArray(data)) {
-            bookEngine.sources.push(...data);
-            imported = data.length;
-        } else {
-            bookEngine.sources.push(data);
-            imported = 1;
+        if (!text.trim()) {
+            showToast('文件为空');
+            return;
         }
         
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (parseError) {
+            console.error('[导入] JSON解析失败:', parseError);
+            showToast('JSON格式错误，请检查文件内容');
+            return;
+        }
+        
+        let imported = 0;
+        let sources = [];
+        
+        if (Array.isArray(data)) {
+            sources = data;
+            imported = data.length;
+        } else if (data && typeof data === 'object') {
+            // 可能是单个书源对象
+            if (data.bookSourceName || data.bookSourceUrl) {
+                sources = [data];
+                imported = 1;
+            } else {
+                showToast('无效的书源格式');
+                return;
+            }
+        } else {
+            showToast('无效的书源格式');
+            return;
+        }
+        
+        // 验证书源
+        const validSources = sources.filter(s => s && (s.bookSourceName || s.bookSourceUrl));
+        if (validSources.length === 0) {
+            showToast('未找到有效的书源');
+            return;
+        }
+        
+        // 添加到书源列表
+        bookEngine.sources.push(...validSources);
         await Storage.set('custom_sources', bookEngine.sources);
+        
         renderSources();
         hideImportSource();
         input.value = '';
-        showToast(`成功导入 ${imported} 个书源`);
+        showToast(`成功导入 ${validSources.length} 个书源`);
+        
     } catch (e) {
-        showToast('文件格式错误: ' + e.message);
+        console.error('[导入] 失败:', e);
+        showToast('导入失败: ' + e.message);
     }
 }
 
@@ -674,9 +859,10 @@ async function deleteSource(index) {
     showToast(`已删除: ${source.bookSourceName || '未命名'}`);
 }
 
-// 搜索
+// 搜索 - 涡轮增压版
 let lastSearchResults = [];
 let lastSearchKeyword = '';
+let isSearching = false;
 
 async function doSearch() {
     const input = document.getElementById('search-input');
@@ -687,43 +873,80 @@ async function doSearch() {
         return;
     }
     
+    if (isSearching) {
+        showToast('🚀 搜索中，请稍候...');
+        return;
+    }
+    
+    isSearching = true;
     lastSearchKeyword = keyword;
     const grid = document.getElementById('discover-grid');
     if (!grid) return;
     
-    // 显示搜索中状态
+    // 显示涡轮增压搜索中状态
     grid.innerHTML = `
         <div class="empty-state" style="grid-column: 1/-1;">
-            <div class="loading-spinner"></div>
-            <p>正在搜索 ${keyword}...</p>
-            <p style="font-size: 12px; color: var(--text-tertiary); margin-top: 8px;">正在查询多个书源</p>
+            <div style="font-size: 48px; margin-bottom: 16px;">🚀</div>
+            <p style="font-size: 16px; font-weight: 600; color: var(--primary);">涡轮增压搜索中...</p>
+            <p style="font-size: 14px; color: var(--text-secondary); margin-top: 8px;">正在全速搜索「${keyword}」</p>
+            <div style="margin-top: 20px; width: 200px; height: 4px; background: var(--divider); border-radius: 2px; overflow: hidden; margin-left: auto; margin-right: auto;">
+                <div id="turbo-progress" style="width: 0%; height: 100%; background: linear-gradient(90deg, #ff6b6b, #feca57); transition: width 0.3s;"></div>
+            </div>
+            <p id="turbo-status" style="font-size: 12px; color: var(--text-tertiary); margin-top: 8px;">准备起飞...</p>
         </div>
     `;
     
+    // 更新进度条
+    const progressBar = document.getElementById('turbo-progress');
+    const statusText = document.getElementById('turbo-status');
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += 5;
+        if (progress <= 90 && progressBar) {
+            progressBar.style.width = progress + '%';
+        }
+        if (statusText) {
+            const statuses = ['准备起飞...', '加速中...', '涡轮增压启动！', '全速搜索中...', '即将到达...'];
+            statusText.textContent = statuses[Math.floor(progress / 20)] || '搜索中...';
+        }
+    }, 100);
+    
     try {
+        const startTime = Date.now();
         const results = await bookEngine.search(keyword);
+        const searchTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        
+        clearInterval(progressInterval);
+        if (progressBar) progressBar.style.width = '100%';
+        
         lastSearchResults = results;
         
         if (results.length === 0) {
             grid.innerHTML = `
                 <div class="empty-state" style="grid-column: 1/-1;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">😔</div>
                     <p>未找到相关书籍</p>
                     <p style="font-size: 14px; margin-top: 10px;">换个关键词试试</p>
                 </div>
             `;
+            isSearching = false;
             return;
         }
         
         renderSearchResults(results);
-        showToast(`找到 ${results.length} 本书`);
+        showToast(`🚀 涡轮增压完成！找到 ${results.length} 本书 (${searchTime}秒)`);
     } catch (e) {
+        clearInterval(progressInterval);
         console.error('搜索失败:', e);
         grid.innerHTML = `
             <div class="empty-state" style="grid-column: 1/-1;">
+                <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
                 <p>搜索失败</p>
                 <p style="font-size: 14px; margin-top: 10px;">请检查网络连接</p>
             </div>
         `;
+    } finally {
+        isSearching = false;
     }
 }
 
@@ -1681,19 +1904,22 @@ function showBookDetail(book) {
     // 检查是否已在书架
     const inBookshelf = bookshelf.find(b => b.name === book.name && b.author === book.author);
     
+    // 清理简介中的特殊字符
+    const cleanIntro = (book.intro || '暂无简介').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
     content.innerHTML = `
         <div class="book-detail-header">
             <img src="${book.coverUrl || 'https://via.placeholder.com/120x160/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
                  class="book-detail-cover"
                  onerror="this.src='https://via.placeholder.com/120x160/1976d2/ffffff?text=书'">
             <div class="book-detail-info">
-                <div class="book-detail-title">${book.name || '未知书名'}</div>
+                <div class="book-detail-title">${(book.name || '未知书名').replace(/</g, '&lt;')}</div>
                 <div class="book-detail-author">作者：${book.author || '未知作者'}</div>
                 <div class="book-detail-source">来源：${book.sourceName || '网络'}</div>
                 <div class="book-detail-actions">
                     ${inBookshelf ? 
                         `<button class="book-detail-btn primary" onclick="readBook('${inBookshelf.id}')">继续阅读</button>` :
-                        `<button class="book-detail-btn primary" onclick='addBookFromDetail(${JSON.stringify(book).replace(/'/g, "&#39;")})'>加入书架</button>`
+                        `<button class="book-detail-btn primary" id="detail-add-btn">加入书架</button>`
                     }
                     <button class="book-detail-btn secondary" onclick="showBookDetailChapters()">查看目录</button>
                 </div>
@@ -1702,7 +1928,7 @@ function showBookDetail(book) {
         
         <div class="book-detail-section">
             <div class="book-detail-section-title">简介</div>
-            <div class="book-detail-intro">${book.intro || '暂无简介'}</div>
+            <div class="book-detail-intro">${cleanIntro}</div>
         </div>
         
         <div class="book-detail-section" id="book-detail-chapters-section" style="display: none;">
@@ -1713,6 +1939,12 @@ function showBookDetail(book) {
         </div>
     `;
     
+    // 绑定加入书架按钮事件
+    const addBtn = document.getElementById('detail-add-btn');
+    if (addBtn) {
+        addBtn.onclick = () => addBookFromDetail();
+    }
+    
     page.classList.add('active');
 }
 
@@ -1720,9 +1952,11 @@ function closeBookDetail() {
     document.getElementById('book-detail-page').classList.remove('active');
 }
 
-async function addBookFromDetail(book) {
-    await addBook(book);
-    closeBookDetail();
+async function addBookFromDetail() {
+    if (currentDetailBook) {
+        await addBook(currentDetailBook);
+        closeBookDetail();
+    }
 }
 
 async function showBookDetailChapters() {
