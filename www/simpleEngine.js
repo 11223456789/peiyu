@@ -116,23 +116,42 @@ class SimpleBookEngine {
     parseBooks(html, rule, source) {
         const books = [];
         
+        console.log(`[解析] 书源: ${source.bookSourceName}, bookList规则: ${rule.bookList}`);
+        
         // 尝试解析JSON
         let data = null;
         try {
             data = JSON.parse(html);
-        } catch (e) {}
+            console.log('[解析] JSON解析成功');
+        } catch (e) {
+            console.log('[解析] 不是JSON格式:', e.message);
+            return books;
+        }
 
         if (data && rule.bookList) {
             // JSONPath 解析
+            console.log(`[解析] 尝试获取路径: ${rule.bookList}`);
             const list = this.getValueByPath(data, rule.bookList);
+            console.log(`[解析] 获取结果:`, list);
+            
             if (Array.isArray(list)) {
-                for (const item of list.slice(0, 10)) {
+                console.log(`[解析] 是数组，长度: ${list.length}`);
+                for (let i = 0; i < Math.min(list.length, 10); i++) {
+                    const item = list[i];
+                    console.log(`[解析] 处理第${i+1}项:`, item);
                     const book = this.extractBookFromJson(item, rule, source);
-                    if (book.name) books.push(book);
+                    console.log(`[解析] 提取结果:`, book);
+                    if (book.name) {
+                        books.push(book);
+                        console.log(`[解析] 成功添加书籍: ${book.name}`);
+                    }
                 }
+            } else {
+                console.log('[解析] 结果不是数组:', typeof list);
             }
         }
 
+        console.log(`[解析] 总计返回 ${books.length} 本书`);
         return books;
     }
 
@@ -173,26 +192,18 @@ class SimpleBookEngine {
     getValueByPath(obj, path) {
         if (!path) return obj;
         
-        // 处理 [*] 语法
-        if (path.includes('[*]')) {
-            const parts = path.split('[*]');
-            let result = obj;
-            
-            for (let i = 0; i < parts.length; i++) {
-                const part = parts[i].replace(/^\./, '');
-                if (part) {
-                    result = result[part];
-                }
-                if (i < parts.length - 1 && Array.isArray(result)) {
-                    // 返回数组供上层处理
-                    return result;
-                }
-            }
-            return result;
+        // 移除开头的 $. 
+        let cleanPath = path.replace(/^\$\./, '');
+        
+        // 处理 [*] 语法，例如: data[*] -> 返回 data 数组
+        if (cleanPath.includes('[*]')) {
+            const arrayKey = cleanPath.replace('[*]', '');
+            console.log(`[JSONPath] 数组路径: ${arrayKey}`);
+            return obj[arrayKey];
         }
         
         // 普通路径
-        const keys = path.split('.');
+        const keys = cleanPath.split('.');
         let value = obj;
         for (const key of keys) {
             if (value === null || value === undefined) return null;
