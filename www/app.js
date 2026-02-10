@@ -84,12 +84,13 @@ async function loadDefaultSources() {
     try {
         const response = await fetch('book_sources.json');
         const sources = await response.json();
-        // 只启用前5个书源，避免太多
-        appData.sources = sources.slice(0, 5).map(s => ({
+        // 加载全部书源
+        appData.sources = sources.map(s => ({
             ...s,
             enabled: true
         }));
         await Storage.set('sources', appData.sources);
+        console.log(`已加载 ${appData.sources.length} 个书源`);
     } catch (e) {
         console.error('加载内置书源失败:', e);
         // 备用默认书源
