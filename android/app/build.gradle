@@ -33,6 +33,15 @@ android {
     packagingOptions {
         pickFirst '**/libc++_shared.so'
         pickFirst '**/libjsc.so'
+        exclude 'META-INF/DUMMY.SF'
+        exclude 'META-INF/DUMMY.RSA'
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.8.0'
+        force 'androidx.appcompat:appcompat:1.5.0'
     }
 }
 
