@@ -164,6 +164,28 @@ function setupEvents() {
             if (e.key === 'Enter') doSearch();
         });
     }
+    
+    // 文件导入按钮
+    const selectFileBtn = document.getElementById('select-file-btn');
+    const fileInput = document.getElementById('import-file-input');
+    if (selectFileBtn && fileInput) {
+        selectFileBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => handleImportFile(fileInput));
+    }
+    
+    // 导入面板标签切换
+    document.querySelectorAll('.import-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            if (tabName) switchImportTab(tabName);
+        });
+    });
+    
+    // 导入按钮
+    const importUrlBtn = document.getElementById('import-url-btn');
+    const importJsonBtn = document.getElementById('import-json-btn');
+    if (importUrlBtn) importUrlBtn.addEventListener('click', importFromUrl);
+    if (importJsonBtn) importJsonBtn.addEventListener('click', importFromJson);
 }
 
 let currentPageId = 'bookshelf-page';

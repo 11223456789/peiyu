@@ -968,26 +968,26 @@
         </div>
         <div class="import-content">
             <div class="import-tabs">
-                <div class="import-tab active" data-tab="url" onclick="switchImportTab('url')">网络导入</div>
-                <div class="import-tab" data-tab="json" onclick="switchImportTab('json')">JSON导入</div>
-                <div class="import-tab" data-tab="file" onclick="switchImportTab('file')">文件导入</div>
+                <div class="import-tab active" data-tab="url">网络导入</div>
+                <div class="import-tab" data-tab="json">JSON导入</div>
+                <div class="import-tab" data-tab="file">文件导入</div>
             </div>
             <div class="import-body">
                 <div class="import-section active" id="import-url-section">
                     <textarea class="import-textarea" id="import-url" placeholder="请输入书源URL，支持多个URL，每行一个"></textarea>
-                    <button class="import-btn" onclick="importFromUrl()">导入</button>
+                    <button class="import-btn" id="import-url-btn">导入</button>
                 </div>
                 <div class="import-section" id="import-json-section">
                     <textarea class="import-textarea" id="import-json" placeholder="请粘贴书源JSON内容"></textarea>
-                    <button class="import-btn" onclick="importFromJson()">导入</button>
+                    <button class="import-btn" id="import-json-btn">导入</button>
                 </div>
                 <div class="import-section" id="import-file-section">
                     <div style="padding: 40px; text-align: center; border: 2px dashed var(--border); border-radius: 8px; margin-bottom: 16px;">
                         <div style="font-size: 48px; margin-bottom: 12px;">📁</div>
                         <div style="color: var(--text-secondary); margin-bottom: 16px;">点击选择或拖拽书源文件到此处</div>
                         <div style="font-size: 12px; color: var(--text-tertiary);">支持 .json 格式的书源文件</div>
-                        <input type="file" id="import-file-input" accept=".json" style="display: none;" onchange="handleImportFile(this)">
-                        <button class="import-btn" onclick="document.getElementById('import-file-input').click()" style="margin-top: 16px;">选择文件</button>
+                        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                        <button class="import-btn" id="select-file-btn" style="margin-top: 16px;">选择文件</button>
                     </div>
                 </div>
             </div>

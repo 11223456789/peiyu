@@ -7,8 +7,18 @@ class SimpleBookEngine {
     async init() {
         try {
             // 先加载内置书源
-            const response = await fetch('book_sources.json');
-            const allSources = await response.json();
+            let builtinSources = [];
+            try {
+                const response = await fetch('book_sources.json');
+                const allSources = await response.json();
+                // 放宽过滤条件：只要有搜索URL或搜索规则即可
+                builtinSources = allSources.filter(s => 
+                    s && (s.searchUrl || s.ruleSearch)
+                );
+                console.log(`[引擎] 内置书源: ${builtinSources.length}个`);
+            } catch (e) {
+                console.warn('[引擎] 加载内置书源失败:', e);
+            }
             
             // 加载自定义书源
             let customSources = [];
@@ -16,22 +26,38 @@ class SimpleBookEngine {
                 const { value } = await Capacitor.Plugins.Preferences.get({ key: 'custom_sources' });
                 if (value) {
                     customSources = JSON.parse(value);
+                    console.log(`[引擎] 自定义书源: ${customSources.length}个`);
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn('[引擎] 加载自定义书源失败:', e);
+            }
             
-            // 合并书源（自定义优先）
-            const builtinSources = allSources.filter(s => 
-                s.bookSourceType === 0 && 
-                s.ruleSearch && 
-                s.searchUrl
-            );
+            // 合并书源（自定义优先，去重）
+            const existingUrls = new Set();
+            const sources = [];
             
-            this.sources = [...customSources, ...builtinSources];
+            // 先添加自定义书源
+            for (const s of customSources) {
+                if (s && s.bookSourceUrl && !existingUrls.has(s.bookSourceUrl)) {
+                    existingUrls.add(s.bookSourceUrl);
+                    sources.push(s);
+                }
+            }
             
-            console.log(`[引擎] 加载 ${this.sources.length} 个书源（内置:${builtinSources.length} 自定义:${customSources.length}）`);
+            // 再添加内置书源（不重复）
+            for (const s of builtinSources) {
+                if (s && s.bookSourceUrl && !existingUrls.has(s.bookSourceUrl)) {
+                    existingUrls.add(s.bookSourceUrl);
+                    sources.push(s);
+                }
+            }
+            
+            this.sources = sources;
+            
+            console.log(`[引擎] 总计加载 ${this.sources.length} 个书源`);
             return this.sources;
         } catch (e) {
-            console.error('[引擎] 加载失败:', e);
+            console.error('[引擎] 初始化失败:', e);
             return [];
         }
     }
