@@ -945,8 +945,13 @@ async function importFromJson() {
 
 // 处理导入文件 - Legado格式支持
 async function handleImportFile(input) {
+    console.log('[导入] handleImportFile 被调用');
+    console.log('[导入] input:', input);
+    console.log('[导入] files:', input?.files);
+    
     const file = input.files[0];
     if (!file) {
+        console.error('[导入] 没有选择文件');
         showToast('请选择文件');
         return;
     }
@@ -957,6 +962,7 @@ async function handleImportFile(input) {
     try {
         const text = await file.text();
         console.log('[导入] 文件内容长度:', text.length);
+        console.log('[导入] 文件前500字符:', text.substring(0, 500));
         
         if (!text.trim()) {
             showToast('文件为空');
@@ -967,14 +973,21 @@ async function handleImportFile(input) {
         let data;
         try {
             data = JSON.parse(text);
+            console.log('[导入] JSON解析成功, 类型:', typeof data, '是否数组:', Array.isArray(data));
+            if (Array.isArray(data)) {
+                console.log('[导入] 数组长度:', data.length);
+            } else if (typeof data === 'object') {
+                console.log('[导入] 对象键:', Object.keys(data).slice(0, 10));
+            }
         } catch (parseError) {
-            console.error('[导入] JSON解析失败:', parseError);
-            showToast('❌ JSON格式错误');
+            console.error('[导入] JSON解析失败:', parseError.message);
+            showToast('❌ JSON格式错误: ' + parseError.message);
             return;
         }
         
         // 解析书源数据
         const sources = parseBookSources(data);
+        console.log('[导入] 解析出书源数量:', sources.length);
         
         if (sources.length === 0) {
             showToast('❌ 未找到有效的书源');
@@ -982,8 +995,12 @@ async function handleImportFile(input) {
         }
         
         // 添加到书源列表
+        console.log('[导入] 当前书源数量:', bookEngine.sources.length);
         bookEngine.sources.push(...sources);
+        console.log('[导入] 导入后书源数量:', bookEngine.sources.length);
+        
         await Storage.set('custom_sources', bookEngine.sources);
+        console.log('[导入] 已保存到存储');
         
         renderSources();
         hideImportSource();
@@ -999,35 +1016,49 @@ async function handleImportFile(input) {
 
 // 解析书源数据 - 支持多种格式
 function parseBookSources(data) {
+    console.log('[解析] 开始解析, 数据类型:', typeof data);
     const sources = [];
     
     // 处理数组格式
     if (Array.isArray(data)) {
+        console.log('[解析] 数组格式, 长度:', data.length);
         data.forEach((item, index) => {
             const source = normalizeBookSource(item, index);
-            if (source) sources.push(source);
+            if (source) {
+                sources.push(source);
+                console.log(`[解析] 书源 ${index + 1}: ${source.bookSourceName}`);
+            }
         });
     } 
     // 处理单个对象
     else if (data && typeof data === 'object') {
+        console.log('[解析] 单对象格式');
         const source = normalizeBookSource(data, 0);
         if (source) sources.push(source);
     }
     
+    console.log('[解析] 最终有效书源数:', sources.length);
     return sources;
 }
 
 // 标准化书源对象
 function normalizeBookSource(data, index) {
-    if (!data || typeof data !== 'object') return null;
+    if (!data || typeof data !== 'object') {
+        console.log(`[标准化] 跳过无效数据 (索引${index}):`, typeof data);
+        return null;
+    }
     
     // 检查是否是有效的书源
     const hasBookSourceUrl = data.bookSourceUrl || data.url || data.sourceUrl;
     const hasBookSourceName = data.bookSourceName || data.sourceName || data.name;
     const hasRuleSearch = data.ruleSearch || data.searchRule;
+    const hasSearchUrl = data.searchUrl;
     
-    if (!hasBookSourceUrl && !hasRuleSearch) {
-        console.log('[导入] 跳过无效书源:', data);
+    console.log(`[标准化] 书源 ${index}: URL=${!!hasBookSourceUrl}, Name=${!!hasBookSourceName}, RuleSearch=${!!hasRuleSearch}, SearchUrl=${!!hasSearchUrl}`);
+    
+    // 只要有 URL 或者有搜索能力就算有效
+    if (!hasBookSourceUrl && !hasRuleSearch && !hasSearchUrl) {
+        console.log(`[标准化] 跳过无效书源 ${index}: 缺少必要字段`);
         return null;
     }
     
@@ -1038,7 +1069,7 @@ function normalizeBookSource(data, index) {
         bookSourceType: data.bookSourceType || 0,
         bookSourceGroup: data.bookSourceGroup || '',
         bookSourceComment: data.bookSourceComment || '',
-        enabled: true,
+        enabled: data.enabled !== false,
         enabledExplore: data.enabledExplore !== false,
         
         // 搜索规则
@@ -1063,6 +1094,7 @@ function normalizeBookSource(data, index) {
         customOrder: data.customOrder || 0
     };
     
+    console.log(`[标准化] 成功: ${source.bookSourceName} (${source.bookSourceUrl})`);
     return source;
 }
 

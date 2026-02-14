@@ -67,8 +67,10 @@ class SimpleBookEngine {
         const results = [];
         const seen = new Set(); // 去重
         
-        // 只使用已启用的书源
-        const enabledSources = this.sources.filter(s => s.enabled !== false && s.searchUrl);
+        // 使用所有有搜索能力的书源
+        const enabledSources = this.sources.filter(s => 
+            s.enabled !== false && (s.searchUrl || s.ruleSearch)
+        );
         console.log(`[搜索] 关键词: ${keyword}, 可用书源: ${enabledSources.length}个`);
         
         // 限制同时搜索的书源数量，避免请求过多
