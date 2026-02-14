@@ -946,6 +946,14 @@ async function importFromJson() {
 // 处理导入文件 - Legado格式支持
 async function handleImportFile(input) {
     console.log('[导入] handleImportFile 被调用');
+    
+    // 检查 bookEngine 是否可用
+    if (typeof bookEngine === 'undefined') {
+        console.error('[导入] bookEngine 未定义');
+        showToast('系统初始化中，请稍后重试');
+        return;
+    }
+    
     console.log('[导入] input:', input);
     console.log('[导入] files:', input?.files);
     
