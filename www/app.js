@@ -54,8 +54,8 @@ let readStartTime = null;
 function startReadTimeTracker() {
     // 每分钟记录一次阅读时间
     setInterval(() => {
-        const reader = document.getElementById('reader');
-        if (reader && reader.classList.contains('active')) {
+        const readerEl = document.getElementById('reader');
+        if (readerEl && readerEl.classList.contains('active')) {
             recordReadTime(1);
         }
     }, 60000);
@@ -452,10 +452,16 @@ function renderSources(page = 0, filter = '') {
     // 更新统计
     const total = bookEngine.sources.length;
     
-    document.getElementById('total-sources').textContent = total;
-    document.getElementById('enabled-sources').textContent = total;
-    document.getElementById('disabled-sources').textContent = 0;
-    document.getElementById('source-count').textContent = `${total}个`;
+    // 安全地更新元素
+    const totalEl = document.getElementById('total-sources');
+    const enabledEl = document.getElementById('enabled-sources');
+    const disabledEl = document.getElementById('disabled-sources');
+    const countEl = document.getElementById('source-count');
+    
+    if (totalEl) totalEl.textContent = total;
+    if (enabledEl) enabledEl.textContent = total;
+    if (disabledEl) disabledEl.textContent = 0;
+    if (countEl) countEl.textContent = `${total}个`;
     
     if (total === 0) {
         list.innerHTML = `
@@ -1160,22 +1166,23 @@ function renderSearchResults(results, filterSource = '') {
         }
     });
     
+    // 保存过滤状态
+    window._currentFilterSource = filterSource;
+    
     // 构建过滤栏HTML
     let filterHtml = '';
     if (sourceMap.size > 0) {
         const sources = Array.from(sourceMap.entries()).sort((a, b) => b[1] - a[1]);
         filterHtml = `
             <div style="grid-column: 1/-1; margin-bottom: 12px;">
-                <div style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; -webkit-overflow-scrolling: touch;">
-                    <div class="source-filter-chip ${!filterSource ? 'active' : ''}" 
-                         onclick="renderSearchResults(lastSearchResults, '')"
+                <div id="source-filter-container" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; -webkit-overflow-scrolling: touch;">
+                    <div class="source-filter-chip ${!filterSource ? 'active' : ''}" data-filter=""
                          style="flex-shrink: 0; padding: 6px 12px; background: ${!filterSource ? 'var(--primary)' : 'var(--bg-gray)'}; 
                                 color: ${!filterSource ? 'white' : 'var(--text-secondary)'}; border-radius: 16px; font-size: 12px; cursor: pointer;">
                         全部 (${results.length})
                     </div>
                     ${sources.map(([source, count]) => `
-                        <div class="source-filter-chip ${filterSource === source ? 'active' : ''}" 
-                             onclick="renderSearchResults(lastSearchResults, '${source.replace(/'/g, "\\'")}')"
+                        <div class="source-filter-chip ${filterSource === source ? 'active' : ''}" data-filter="${source.replace(/"/g, '&quot;')}"
                              style="flex-shrink: 0; padding: 6px 12px; background: ${filterSource === source ? 'var(--primary)' : 'var(--bg-gray)'}; 
                                     color: ${filterSource === source ? 'white' : 'var(--text-secondary)'}; border-radius: 16px; font-size: 12px; cursor: pointer;
                                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
@@ -1196,18 +1203,40 @@ function renderSearchResults(results, filterSource = '') {
         return;
     }
     
-    const resultsHtml = filteredResults.map(book => `
-        <div class="book-grid-item" onclick='showBookDetail(${JSON.stringify(book).replace(/'/g, "&#39;")})'>
+    // 保存搜索结果到全局变量供点击使用
+    window._searchResults = filteredResults;
+    
+    const resultsHtml = filteredResults.map((book, index) => `
+        <div class="book-grid-item" data-book-index="${index}">
             <img src="${book.coverUrl || 'https://via.placeholder.com/100x133/1976d2/ffffff?text=' + encodeURIComponent((book.name || '书').slice(0,1))}" 
                  class="book-grid-cover"
                  onerror="this.src='https://via.placeholder.com/100x133/1976d2/ffffff?text=书'">
-            <div class="book-grid-title">${book.name || '未知书名'}</div>
+            <div class="book-grid-title">${(book.name || '未知书名').replace(/</g, '&lt;')}</div>
             <div class="book-grid-author">${book.author || '未知作者'}</div>
             <div style="font-size: 10px; color: var(--text-tertiary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${book.sourceName || ''}</div>
         </div>
     `).join('');
     
     grid.innerHTML = filterHtml + resultsHtml;
+    
+    // 绑定过滤芯片点击事件
+    const filterContainer = document.getElementById('source-filter-container');
+    if (filterContainer) {
+        filterContainer.querySelectorAll('.source-filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const filter = chip.dataset.filter || '';
+                renderSearchResults(lastSearchResults, filter);
+            });
+        });
+    }
+    
+    // 绑定书籍点击事件
+    grid.querySelectorAll('.book-grid-item').forEach((item, idx) => {
+        item.addEventListener('click', () => {
+            const book = window._searchResults[idx];
+            if (book) showBookDetail(book);
+        });
+    });
 }
 
 // 分类搜索
